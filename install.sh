@@ -320,7 +320,6 @@ reading_inline() {
 }
 
 confirm_action() {
-    echo
     echo -e "${YELLOW}⚠️  Нажмите Enter для подтверждения, или Esc для отмены.${NC}"
 
     local key
@@ -333,7 +332,9 @@ confirm_action() {
         fi
     done
 
+    echo
     echo -e "${RED}⚠️  Вы уверены? Это действие нельзя отменить.${NC}"
+    echo
     echo -e "${YELLOW}⚠️  Нажмите Enter для подтверждения, или Esc для отмены.${NC}"
 
     while true; do
@@ -1688,13 +1689,17 @@ manage_uninstall_bot() {
     echo -e "${GREEN}       🗑️  УДАЛЕНИЕ REMNASALE${NC}"
     echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo
-    echo -e "${RED}⚠️  Внимание!${NC} Это удалит весь бот и все данные!"
+    echo -e "${RED}⚠️  Внимание!${NC} Это удалит бота и все его данные!"
     echo
     
     if ! confirm_action; then
         return
     fi
     
+    clear
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo -e "${GREEN}       🗑️  УДАЛЕНИЕ REMNASALE${NC}"
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo
     
     # Подготовка к удалению (очистка реверс-прокси)
@@ -1718,15 +1723,20 @@ manage_uninstall_bot() {
     # Удаляем глобальную команду
     {
         sudo rm -f /usr/local/bin/remnasale 2>/dev/null || true
-        sudo rm -f /usr/local/bin/remnasale 2>/dev/null || true
+        sudo rm -rf /usr/local/lib/remnasale 2>/dev/null || true
     } &
     show_spinner "Удаление ярлыка команды"
     
     echo
-    echo -e "${GREEN}✅ Бот успешно удален!${NC}"
+    echo -e "${GREEN}✅ Бот был успешно удален!${NC}"
     echo
-    echo -e "${DARKGRAY}Нажмите Enter для продолжения.${NC}"
-    read -p ""
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    printf "${DARKGRAY}   ${BLUE}Enter${DARKGRAY}: Продолжить${NC}"
+    while true; do
+        read -rs -n1 _k 2>/dev/null
+        [[ "$_k" == "" ]] && break
+    done
+    echo
     clear
     exit 0
 }
