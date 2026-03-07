@@ -13,6 +13,7 @@ from .subscription import SubscriptionRepository
 from .ticket import TicketRepository
 from .transaction import TransactionRepository
 from .user import UserRepository
+from .oauth_account import OAuthAccountRepository
 from .web_credential import WebCredentialRepository
 
 
@@ -33,6 +34,7 @@ class RepositoriesFacade:
     extra_device_purchases: ExtraDevicePurchaseRepository
     mirror_bots: MirrorBotRepository
     web_credentials: WebCredentialRepository
+    oauth_accounts: OAuthAccountRepository
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -51,3 +53,4 @@ class RepositoriesFacade:
         self.extra_device_purchases = ExtraDevicePurchaseRepository(session)
         self.mirror_bots = MirrorBotRepository(session)
         self.web_credentials = WebCredentialRepository(session)
+        self.oauth_accounts = OAuthAccountRepository(session)

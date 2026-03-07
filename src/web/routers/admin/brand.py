@@ -22,5 +22,15 @@ async def api_set_brand(request: Request, uid: int = Depends(require_admin)):
     brand["name"] = body.get("name", brand.get("name", "VPN Shop"))
     brand["logo"] = body.get("logo", brand.get("logo", "🔐"))
     brand["slogan"] = body.get("slogan", brand.get("slogan", ""))
+    brand["badge"] = body.get("badge", brand.get("badge", ""))
+    brand["title"] = body.get("title", brand.get("title", ""))
+    brand["subtitle"] = body.get("subtitle", brand.get("subtitle", ""))
+    brand["timezone"] = body.get("timezone", brand.get("timezone", "Europe/Moscow"))
+    # Advantages list
+    if "advantages" in body:
+        brand["advantages"] = body["advantages"]
+    # FAQ list
+    if "faq" in body:
+        brand["faq"] = body["faq"]
     write_brand(brand)
     return JSONResponse({"ok": True})

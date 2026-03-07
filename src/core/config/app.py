@@ -31,6 +31,11 @@ class AppConfig(BaseConfig, env_prefix="APP_"):
     assets_dir: Path = ASSETS_DIR
     origins: StringList = StringList("")
 
+    google_client_id: SecretStr = SecretStr("")
+    google_client_secret: SecretStr = SecretStr("")
+    github_client_id: SecretStr = SecretStr("")
+    github_client_secret: SecretStr = SecretStr("")
+
     bot: BotConfig = Field(default_factory=BotConfig)
     remnawave: RemnawaveConfig = Field(default_factory=RemnawaveConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)

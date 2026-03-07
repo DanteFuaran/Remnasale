@@ -73,7 +73,7 @@ async def require_admin(
 
 WEB_DIR = Path(__file__).parent
 BRAND_FILE = WEB_DIR / "brand_settings.json"
-DEFAULT_BRAND: dict[str, str] = {"name": "VPN Shop", "logo": "🔐", "slogan": ""}
+DEFAULT_BRAND: dict[str, str] = {"name": "VPN Shop", "logo": "🔐", "slogan": "", "badge": "", "title": "", "subtitle": ""}
 
 
 def read_brand() -> dict[str, Any]:

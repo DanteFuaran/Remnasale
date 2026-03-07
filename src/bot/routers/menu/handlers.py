@@ -20,6 +20,7 @@ from src.bot.states import MainMenu, Subscription
 from src.core.constants import USER_KEY
 from src.core.enums import MediaType, PaymentGatewayType, PurchaseType, SubscriptionStatus, SystemNotificationType
 from src.core.i18n.translator import get_translated_kwargs
+from src.core.storage.key_builder import WebAuthKey
 from src.core.utils.adapter import DialogDataAdapter
 from src.core.utils.formatters import (
     format_bytes_to_gb,
@@ -30,6 +31,7 @@ from src.core.utils.formatters import (
 )
 from src.core.utils.message_payload import MessagePayload
 from src.infrastructure.database.models.dto import PlanSnapshotDto, SubscriptionDto, UserDto
+from src.infrastructure.redis.repository import RedisRepository
 from src.infrastructure.taskiq.tasks.redirects import redirect_to_main_menu_task
 from src.infrastructure.taskiq.tasks.notifications import send_delayed_transfer_notification_task
 from src.services.balance_transfer import BalanceTransferService
@@ -145,14 +147,47 @@ async def clear_chat_history(bot: Bot, chat_id: int, current_message_id: int) ->
         logger.debug(f"Cleared {deleted_count} messages from chat {chat_id}")
 
 
+@inject
 @router.message(CommandStart(ignore_case=True))
 async def on_start_command(
     message: Message,
     user: UserDto,
     dialog_manager: DialogManager,
+    redis: FromDishka[RedisRepository],
 ) -> None:
-    # Используем message.bot — это всегда тот бот, через которого пришло сообщение
-    # (работает корректно и для основного бота, и для зеркальных)
+    # Check for bot deeplink web-auth token: /start auth_TOKEN
+    text = message.text or ""
+    parts = text.split(" ", 1)
+    if len(parts) > 1 and parts[1].startswith("auth_"):
+        token = parts[1][5:]  # strip "auth_" prefix
+        key = WebAuthKey(token=token)
+        existing = await redis.get(key, dict)
+        if existing and existing.get("status") == "pending":
+            await redis.set(key, {
+                "status": "ok",
+                "telegram_id": user.telegram_id,
+                "name": user.name or "",
+                "username": user.username or "",
+            }, ex=120)
+            # 1) Clear history and open main menu first
+            bot = message.bot
+            asyncio.create_task(clear_chat_history(bot, message.chat.id, message.message_id))
+            await on_start_dialog(user, dialog_manager)
+            # 2) After main menu is shown — send auth success notification
+            sent = await message.answer(
+                "✅ Ваш профиль подтвержден!\n"
+                "Вернитесь на сайт для продолжения работы.",
+            )
+            # Auto-delete after 5 seconds
+            async def _delete_after_delay() -> None:
+                await asyncio.sleep(5)
+                try:
+                    await sent.delete()
+                except Exception:
+                    pass
+            asyncio.create_task(_delete_after_delay())
+            return
+        # Token expired or already used — fall through to normal /start
     bot = message.bot
     asyncio.create_task(clear_chat_history(bot, message.chat.id, message.message_id))
     await on_start_dialog(user, dialog_manager)

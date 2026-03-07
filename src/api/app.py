@@ -48,6 +48,11 @@ def create_app(config: AppConfig, dispatcher: Dispatcher) -> FastAPI:
             name="miniapp-assets-root",
         )
 
+    # Ticket image uploads
+    _ticket_uploads = _pl.Path("/opt/remnasale/assets/ticket_uploads")
+    _ticket_uploads.mkdir(parents=True, exist_ok=True)
+    app.mount("/ticket-uploads", StaticFiles(directory=str(_ticket_uploads)), name="ticket-uploads")
+
     app.include_router(web_router, prefix="/web")
     app.state.config = config
     app.state.miniapp_dist = _MINIAPP_DIST
@@ -62,14 +67,54 @@ def create_app(config: AppConfig, dispatcher: Dispatcher) -> FastAPI:
         )
 
     # Root — if request comes from web domain, serve website; otherwise redirect to miniapp
-    @app.get("/", include_in_schema=False)
-    async def root_redirect(request: Request):
+    def _is_web_domain(request: Request) -> bool:
         web_domain = config.web_domain.get_secret_value()
         host = request.headers.get("host", "").split(":")[0]
-        if web_domain and host == web_domain:
-            if _WEBSITE_DIST.exists() and (_WEBSITE_DIST / "index.html").exists():
-                return FileResponse(str(_WEBSITE_DIST / "index.html"), media_type="text/html")
+        return bool(web_domain and host == web_domain)
+
+    def _serve_website_or_none():
+        if _WEBSITE_DIST.exists() and (_WEBSITE_DIST / "index.html").exists():
+            return FileResponse(str(_WEBSITE_DIST / "index.html"), media_type="text/html")
+        return None
+
+    @app.get("/", include_in_schema=False)
+    async def root_redirect(request: Request):
+        if _is_web_domain(request):
+            resp = _serve_website_or_none()
+            if resp:
+                return resp
         return RedirectResponse(url="/web/", status_code=302)
+
+    @app.get("/dashboard", include_in_schema=False)
+    async def website_dashboard(request: Request):
+        if _is_web_domain(request):
+            resp = _serve_website_or_none()
+            if resp:
+                return resp
+        return RedirectResponse(url="/web/", status_code=302)
+
+    @app.get("/system", include_in_schema=False)
+    async def website_system(request: Request):
+        """Admin panel — served as SPA route."""
+        if _is_web_domain(request):
+            resp = _serve_website_or_none()
+            if resp:
+                return resp
+        return RedirectResponse(url="/", status_code=302)
+
+    @app.get("/support", include_in_schema=False)
+    async def website_support(request: Request):
+        """Support page — served as SPA route."""
+        if _is_web_domain(request):
+            resp = _serve_website_or_none()
+            if resp:
+                return resp
+        return RedirectResponse(url="/", status_code=302)
+
+    @app.get("/admin", include_in_schema=False)
+    async def website_admin_redirect(request: Request):
+        """Legacy admin route — redirect to home."""
+        return RedirectResponse(url="/", status_code=302)
 
     # Website landing page (served on APP_WEB_DOMAIN)
     @app.get("/site/", response_class=HTMLResponse, include_in_schema=False)

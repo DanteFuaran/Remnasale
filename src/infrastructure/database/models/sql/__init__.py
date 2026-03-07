@@ -1,5 +1,6 @@
 from .balance_transfer import BalanceTransfer
 from .base import BaseSql
+from .oauth_account import OAuthAccount
 from .broadcast import Broadcast, BroadcastMessage
 from .extra_device_purchase import ExtraDevicePurchase
 from .mirror_bot import MirrorBot
@@ -17,6 +18,7 @@ from .web_credential import WebCredential
 __all__ = [
     "BalanceTransfer",
     "BaseSql",
+    "OAuthAccount",
     "Broadcast",
     "BroadcastMessage",
     "ExtraDevicePurchase",

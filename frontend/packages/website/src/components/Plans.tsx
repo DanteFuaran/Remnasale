@@ -45,6 +45,15 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   RUB: '₽',
 };
 
+/** Pick the best price to display: prefer RUB, skip XTR, fallback to first */
+function pickPrice(prices: { currency: string; amount: string }[]) {
+  if (!prices.length) return null;
+  const rub = prices.find((p) => p.currency === 'RUB');
+  if (rub) return rub;
+  const nonStars = prices.find((p) => p.currency !== 'XTR');
+  return nonStars ?? prices[0];
+}
+
 export default function Plans({ botUrl }: PlansProps) {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,9 +76,9 @@ export default function Plans({ botUrl }: PlansProps) {
 
   return (
     <section className="section plans-section" id="plans">
-      <div className="section-header">
-        <h2>Тарифные планы</h2>
-        <p>Выберите подходящий план и подключитесь за минуту</p>
+      <div className="section-title-row">
+        <h2>Тарифы</h2>
+        <div className="section-title-line" />
       </div>
 
       {loading ? (
@@ -98,7 +107,7 @@ export default function Plans({ botUrl }: PlansProps) {
               <div className={`plan-card${isFeatured ? ' featured' : ''}`} key={plan.id}>
                 {isFeatured && <div className="plan-badge">Популярный</div>}
                 <div className="plan-name">{plan.name}</div>
-                {plan.description && <div className="plan-desc">{plan.description}</div>}
+                <div className="plan-desc">{plan.description || '\u00A0'}</div>
 
                 <div className="plan-meta">
                   {(plan as any).is_unlimited_traffic ? (
@@ -117,7 +126,7 @@ export default function Plans({ botUrl }: PlansProps) {
 
                 <div className="plan-durations">
                   {plan.durations.map((dur) => {
-                    const price = dur.prices[0];
+                    const price = pickPrice(dur.prices);
                     if (!price) return null;
                     const sym = CURRENCY_SYMBOLS[price.currency] ?? price.currency;
                     const savPct = savings.get(dur.days);

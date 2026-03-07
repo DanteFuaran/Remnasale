@@ -19,6 +19,20 @@ from src.web.dependencies import require_auth
 router = APIRouter(prefix="/api/tickets", tags=["tickets"])
 
 
+# ── Unread count ──────────────────────────────────────────────────
+
+
+@router.get("/unread-count")
+async def api_unread_count(request: Request, uid: int = Depends(require_auth)):
+    """User: count of tickets with unread admin replies."""
+    container: AsyncContainer = request.app.state.dishka_container
+    async with container(scope=Scope.REQUEST) as req_container:
+        ticket_svc: TicketService = await req_container.get(TicketService)
+        uow: UnitOfWork = await req_container.get(UnitOfWork)
+        count = await ticket_svc.count_unread_user(uow, uid)
+        return JSONResponse({"count": count})
+
+
 # ── Shared helper ─────────────────────────────────────────────────
 
 
@@ -31,14 +45,14 @@ def ticket_to_dict(t: Any) -> dict[str, Any]:
         "user_telegram_id": t.user_telegram_id,
         "is_read_by_user": t.is_read_by_user,
         "is_read_by_admin": t.is_read_by_admin,
-        "created_at": t.created_at.strftime("%d.%m.%Y %H:%M") if t.created_at else "",
-        "updated_at": t.updated_at.strftime("%d.%m.%Y %H:%M") if t.updated_at else "",
+        "created_at": t.created_at.isoformat() if t.created_at else "",
+        "updated_at": t.updated_at.isoformat() if t.updated_at else "",
         "messages": [
             {
                 "id": m.id,
                 "is_admin": m.is_admin,
                 "text": m.text,
-                "created_at": m.created_at.strftime("%d.%m.%Y %H:%M") if m.created_at else "",
+                "created_at": m.created_at.isoformat() if m.created_at else "",
             }
             for m in (t.messages or [])
         ],

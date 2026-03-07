@@ -52,3 +52,27 @@ class StorageKey(BaseModel):
         if isinstance(value, bool):
             return str(int(value))
         return str(value)
+
+
+class WebAuthKey(StorageKey, prefix="website_auth"):
+    """Redis key for website bot-deeplink authentication tokens."""
+
+    token: str
+
+
+class GuestTicketKey(StorageKey, prefix="guest_ticket"):
+    """Redis key mapping a guest token → ticket_id."""
+
+    token: str
+
+
+class GuestTypingKey(StorageKey, prefix="guest_typing"):
+    """Redis key: guest is currently typing in ticket (TTL ~6s)."""
+
+    ticket_id: int
+
+
+class AdminTypingKey(StorageKey, prefix="admin_typing"):
+    """Redis key: admin is currently typing in ticket (TTL ~6s)."""
+
+    ticket_id: int

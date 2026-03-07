@@ -31,7 +31,7 @@ const PARTICLES_CONFIG = {
     },
   },
   interactivity: {
-    detect_on: 'canvas',
+    detect_on: 'window',
     events: {
       onhover: { enable: true, mode: 'grab' },
       onclick: { enable: true, mode: 'push' },
@@ -52,9 +52,6 @@ export default function ParticlesBackground() {
     script.async = true;
     script.onload = () => {
       if (window.particlesJS) {
-        // Enable pointer events on the canvas for interactivity
-        const el = document.getElementById('particles-js');
-        if (el) el.style.pointerEvents = 'auto';
         window.particlesJS('particles-js', PARTICLES_CONFIG);
       }
     };
