@@ -796,7 +796,7 @@ else
 fi
 EOF
             sudo chmod +x /usr/local/bin/remnasale
-            sudo ln -sf /usr/local/bin/remnasale /usr/local/bin/remnasale
+            sudo ln -sf /usr/local/bin/remnasale /usr/local/bin/rs
         ) >/dev/null 2>&1
     fi
     
@@ -2466,7 +2466,6 @@ fi
 update_env_var "$ENV_FILE" "REMNAWAVE_TOKEN" "$REMNAWAVE_TOKEN"
 
 clear
-echo ""
 echo -e "${BLUE}══════════════════════════════════════${NC}"
 echo -e "${GREEN}       🚀 ПРОЦЕСС УСТАНОВКИ${NC}"
 echo -e "${BLUE}══════════════════════════════════════${NC}"
@@ -2660,13 +2659,13 @@ echo
 # ═══════════════════════════════════════════════
 
 if [ ${BOT_START_RESULT:-1} -eq 0 ]; then
-    echo
+    clear
     echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo -e "${GREEN}    🎉 УСТАНОВКА ЗАВЕРШЕНА УСПЕШНО!${NC}"
     echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo
     echo -e "${GREEN}✅ Бот успешно установлен и запущен${NC}"
-    echo -e "${WHITE}✅ Команда вызова меню бота:${NC} ${YELLOW}remnasale${NC} или ${YELLOW}remnasale${NC}"
+    echo -e "${WHITE}✅ Команда вызова меню бота:${NC} ${YELLOW}remnasale${NC} или ${YELLOW}rs${NC}"
 elif [ ${BOT_START_RESULT:-1} -eq 2 ]; then
     while true; do
         MENU_ESC_LABEL="Выход"
@@ -2748,7 +2747,7 @@ else
 fi
 EOF
     sudo chmod +x /usr/local/bin/remnasale
-    sudo ln -sf /usr/local/bin/remnasale /usr/local/bin/remnasale
+    sudo ln -sf /usr/local/bin/remnasale /usr/local/bin/rs
 ) >/dev/null 2>&1
 
 # Удаление исходной папки если она не в /opt/remnasale (после копирования в системную папку)
@@ -2758,8 +2757,9 @@ if [ "$COPY_FILES" = true ] && [ "$SOURCE_DIR" != "/opt/remnasale" ] && [ "$SOUR
 fi
 
 # Ожидание ввода перед возвратом в главное меню
-echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
-read -p ""
+echo
+printf "${DARKGRAY}   ${BLUE}Enter${DARKGRAY}: Продолжить${NC}\n"
+read -rs -n1 2>/dev/null
 clear
 
 cd /opt
