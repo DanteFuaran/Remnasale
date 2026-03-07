@@ -2516,6 +2516,18 @@ echo
     fi
   fi
 
+  # Исправляем DATABASE_HOST и REDIS_HOST на актуальные имена контейнеров
+  if grep -q "^DATABASE_HOST=" "$ENV_FILE"; then
+    update_env_var "$ENV_FILE" "DATABASE_HOST" "remnasale-db"
+  else
+    echo "DATABASE_HOST=remnasale-db" >> "$ENV_FILE"
+  fi
+  if grep -q "^REDIS_HOST=" "$ENV_FILE"; then
+    update_env_var "$ENV_FILE" "REDIS_HOST" "remnasale-redis"
+  else
+    echo "REDIS_HOST=remnasale-redis" >> "$ENV_FILE"
+  fi
+
   # Генерация пароля Redis
   if grep -q "^REDIS_PASSWORD=$" "$ENV_FILE"; then
     CURRENT_REDIS_PASS=$(grep "^REDIS_PASSWORD=" "$ENV_FILE" | cut -d'=' -f2 | tr -d ' ')
@@ -2652,7 +2664,7 @@ elif [ ${BOT_START_RESULT:-1} -eq 2 ]; then
             "📜 Показать лог запуска" \
             "──────────────────────────────────────" \
             "❌ Выйти из программы установки"
-        local error_choice=$?
+        error_choice=$?
         case $error_choice in
             0)  # Показать логи
                 clear
@@ -2678,7 +2690,7 @@ else
             "📜 Показать лог запуска" \
             "──────────────────────────────────────" \
             "❌ Выйти из программы установки"
-        local timeout_choice=$?
+        timeout_choice=$?
         case $timeout_choice in
             0)  # Показать логи
                 clear
