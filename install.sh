@@ -1731,11 +1731,12 @@ manage_uninstall_bot() {
     echo -e "${GREEN}✅ Бот был успешно удален!${NC}"
     echo
     echo -e "${BLUE}══════════════════════════════════════${NC}"
-    printf "${DARKGRAY}   ${BLUE}Enter${DARKGRAY}: Продолжить${NC}"
+    printf "\033[?25l${DARKGRAY}${BLUE}Enter${DARKGRAY}: Продолжить${NC}"
     while true; do
         read -rs -n1 _k 2>/dev/null
         [[ "$_k" == "" ]] && break
     done
+    printf "\033[?25h"
     echo
     clear
     exit 0
@@ -2758,8 +2759,9 @@ fi
 
 # Ожидание ввода перед возвратом в главное меню
 echo
-printf "${DARKGRAY}   ${BLUE}Enter${DARKGRAY}: Продолжить${NC}\n"
+printf "\033[?25l${DARKGRAY}${BLUE}Enter${DARKGRAY}: Продолжить${NC}\n"
 read -rs -n1 2>/dev/null
+printf "\033[?25h"
 clear
 
 cd /opt
