@@ -197,6 +197,7 @@ show_arrow_menu() {
     local options=("$@")
     local num_options=${#options[@]}
     local selected=0
+    local _esc_label="${MENU_ESC_LABEL:-Назад}"
 
     # Сохраняем настройки терминала
     local original_stty
@@ -237,7 +238,7 @@ show_arrow_menu() {
 
         echo
         echo -e "${BLUE}══════════════════════════════════════${NC}"
-        echo -e "${DARKGRAY}Используйте ↑↓ для навигации, Enter для выбора${NC}"
+        echo -e "${DARKGRAY}${BLUE}↑↓${DARKGRAY}: Навигация  ${BLUE}Enter${DARKGRAY}: Выбор  ${BLUE}Esc${DARKGRAY}: ${_esc_label}${NC}"
 
         local key
         read -rsn1 key 2>/dev/null || key=""
@@ -273,6 +274,11 @@ show_arrow_menu() {
                         done
                         ;;
                 esac
+            else
+                # Чистый Esc без последовательности - назад
+                stty "$original_stty" 2>/dev/null || true
+                tput cnorm 2>/dev/null || true
+                return 255
             fi
         else
             local key_code
@@ -743,10 +749,11 @@ show_simple_menu() {
     # Формируем заголовок
     local menu_title
     if [ -n "$display_version" ]; then
-        menu_title="       🚀 DFC TG SHOP v${display_version}\n${DARKGRAY}Проект развивается благодаря вашей поддержке\n        https://github.com/DanteFuaran${NC}"
+        menu_title="       🚀 Remnasale v${display_version}\n${DARKGRAY}Проект развивается благодаря вашей поддержке\n        https://github.com/DanteFuaran${NC}"
     else
-        menu_title="       🚀 DFC TG SHOP\n${DARKGRAY}Проект развивается благодаря вашей поддержке\n        https://github.com/DanteFuaran${NC}"
+        menu_title="       🚀 Remnasale\n${DARKGRAY}Проект развивается благодаря вашей поддержке\n        https://github.com/DanteFuaran${NC}"
     fi
+    MENU_ESC_LABEL="Выход"
     
     show_arrow_menu "$menu_title" \
         "🚀  Установить" \
@@ -758,7 +765,7 @@ show_simple_menu() {
         0)  # Установить
             restart_script --install
             ;;
-        2)  # Выход
+        2|255)  # Выход / Esc
             clear
             exit 0
             ;;
@@ -803,8 +810,8 @@ EOF
     fi
     
     while true; do
-        local menu_title="       🚀 DFC TG SHOP v${LOCAL_VERSION}\n${DARKGRAY}Проект развивается благодаря вашей поддержке\n        https://github.com/DanteFuaran${NC}"
-        
+        local menu_title="       🚀 Remnasale v${LOCAL_VERSION}\n${DARKGRAY}Проект развивается благодаря вашей поддержке\n        https://github.com/DanteFuaran${NC}"
+        MENU_ESC_LABEL="Выход"
         show_arrow_menu "$menu_title" \
             "$update_label" \
             "ℹ️   Просмотр логов" \
@@ -836,6 +843,7 @@ EOF
             11) manage_cleanup_database ;;
             12) manage_uninstall_bot ;;
             14) clear; exit 0 ;;
+            255) clear; exit 0 ;;
         esac
     done
 }
@@ -1354,7 +1362,7 @@ manage_change_settings() {
         local choice=$?
         
         case $choice in
-            4)  # Назад
+            4|255)  # Назад / Esc
                 return
                 ;;
             0)  # Изменить домен
