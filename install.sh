@@ -139,7 +139,7 @@ show_spinner_until_log() {
   
   while [ $elapsed -lt $timeout ]; do
     # Анимация спинера
-    printf "\r${GREEN}%s${NC}  %s (%d/%d сек)" "${spin[$i]}" "$msg" "$elapsed" "$timeout"
+    printf "\r${DARKGRAY}%s  %s (%d/%d сек)${NC}" "${spin[$i]}" "$msg" "$elapsed" "$timeout"
     i=$(( (i+1) % 10 ))
     sleep $delay
     loop_count=$((loop_count + 1))
@@ -165,7 +165,7 @@ show_spinner_until_log() {
     fi
   done
   
-  printf "\r${YELLOW}⚠️${NC}  %s (таймаут)\n" "$msg"
+  printf "\r\033[K"
   tput cnorm 2>/dev/null || true
   return 1
 }
@@ -852,7 +852,7 @@ EOF
 manage_update_bot() {
     clear
     echo -e "${BLUE}══════════════════════════════════════${NC}"
-    echo -e "${GREEN}       🔄 ОБНОВЛЕНИЕ DFC-SHOP-BOT${NC}"
+    echo -e "${GREEN}       🔄 ОБНОВЛЕНИЕ REMNASALE${NC}"
     echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo
     
@@ -917,7 +917,7 @@ manage_update_bot() {
     if [ $UPDATE_NEEDED -eq 0 ]; then
         clear
         echo -e "${BLUE}══════════════════════════════════════${NC}"
-        echo -e "${GREEN}       🔄 ОБНОВЛЕНИЕ DFC-SHOP-BOT${NC}"
+        echo -e "${GREEN}       🔄 ОБНОВЛЕНИЕ REMNASALE${NC}"
         echo -e "${BLUE}══════════════════════════════════════${NC}"
         echo
         echo -e "${GREEN}✅ Уже установлена последняя версия бота!${NC}"
@@ -937,7 +937,7 @@ manage_update_bot() {
         # Автоматическое начало обновления без диалога
         clear
         echo -e "${BLUE}══════════════════════════════════════${NC}"
-        echo -e "${GREEN}       🔄 ОБНОВЛЕНИЕ DFC-SHOP-BOT${NC}"
+        echo -e "${GREEN}       🔄 ОБНОВЛЕНИЕ REMNASALE${NC}"
         echo -e "${BLUE}══════════════════════════════════════${NC}"
         echo
         if [ -n "$LOCAL_VERSION" ] && [ "$LOCAL_VERSION" != "unknown" ]; then
@@ -1056,7 +1056,7 @@ manage_update_bot() {
             # Ожидание запуска бота
             echo
             
-            # Ждем появления логотипа DFC в логах
+            # Ждем появления логотипа Remnasale в логах
             show_spinner_until_log "remnasale" "Digital.*Freedom.*Core" "Запуск бота" 90
             local spinner_result=$?
             
@@ -1123,11 +1123,11 @@ manage_update_bot() {
     rm -rf "$TEMP_REPO" 2>/dev/null || true
 }
 
-# Функция перезагрузки бота с ожиданием логотипа DFC
+# Функция перезагрузки бота с ожиданием логотипа Remnasale
 manage_restart_bot() {
     clear
     echo -e "${BLUE}══════════════════════════════════════${NC}"
-    echo -e "${GREEN}      🔃 ПЕРЕЗАГРУЗКА DFC-SHOP-BOT${NC}"
+    echo -e "${GREEN}      🔃 ПЕРЕЗАГРУЗКА REMNASALE${NC}"
     echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo
     echo -e "${YELLOW}Бот будет перезагружен...${NC}"
@@ -1140,7 +1140,7 @@ manage_restart_bot() {
     } &
     show_spinner "Перезагрузка бота"
     
-    # Ждем появления логотипа DFC в логах
+    # Ждем появления логотипа Remnasale в логах
     show_spinner_until_log "remnasale" "Digital.*Freedom.*Core" "Запуск бота" 90
     local spinner_result=$?
     
@@ -1162,7 +1162,7 @@ manage_restart_bot() {
 manage_restart_bot_with_logs() {
     clear
     echo -e "${BLUE}══════════════════════════════════════${NC}"
-    echo -e "${GREEN}    🔃📊 ПЕРЕЗАГРУЗКА С ЛОГАМИ DFC-SHOP-BOT${NC}"
+    echo -e "${GREEN}    🔃📊 ПЕРЕЗАГРУЗКА С ЛОГАМИ REMNASALE${NC}"
     echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo
     echo -e "${YELLOW}Бот будет перезагружен с отображением логов...${NC}"
@@ -1199,7 +1199,7 @@ manage_restart_bot_with_logs() {
 manage_reinstall_bot() {
     clear
     echo -e "${BLUE}══════════════════════════════════════${NC}"
-    echo -e "${GREEN}      🔄 ПЕРЕУСТАНОВКА DFC-SHOP-BOT${NC}"
+    echo -e "${GREEN}      🔄 ПЕРЕУСТАНОВКА REMNASALE${NC}"
     echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo
     echo -e "${RED}⚠️  ВНИМАНИЕ!${NC}"
@@ -1253,7 +1253,7 @@ manage_reinstall_bot() {
 manage_stop_bot() {
     clear
     echo -e "${BLUE}══════════════════════════════════════${NC}"
-    echo -e "${GREEN}      ⬇️  ВЫКЛЮЧЕНИЕ DFC-SHOP-BOT${NC}"
+    echo -e "${GREEN}      ⬇️  ВЫКЛЮЧЕНИЕ REMNASALE${NC}"
     echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo
     echo -e "${YELLOW}Бот будет выключен...${NC}"
@@ -1278,7 +1278,7 @@ manage_stop_bot() {
 manage_start_bot() {
     clear
     echo -e "${BLUE}══════════════════════════════════════${NC}"
-    echo -e "${GREEN}      ⬆️  ВКЛЮЧЕНИЕ DFC-SHOP-BOT${NC}"
+    echo -e "${GREEN}      ⬆️  ВКЛЮЧЕНИЕ REMNASALE${NC}"
     echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo
     echo -e "${YELLOW}Бот будет включен...${NC}"
@@ -1303,7 +1303,7 @@ manage_start_bot() {
 manage_view_logs() {
     clear
     echo -e "${BLUE}══════════════════════════════════════${NC}"
-    echo -e "${GREEN}       📋 ПРОСМОТР ЛОГОВ DFC-SHOP-BOT${NC}"
+    echo -e "${GREEN}       📋 ПРОСМОТР ЛОГОВ REMNASALE${NC}"
     echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo
     echo -e "${DARKGRAY}Последние 50 строк логов...${NC}"
@@ -1323,7 +1323,7 @@ manage_view_logs() {
 manage_view_logs_live() {
     clear
     echo -e "${BLUE}══════════════════════════════════════${NC}"
-    echo -e "${GREEN}     📊 ЛОГИ В РЕАЛЬНОМ ВРЕМЕНИ DFC-SHOP-BOT${NC}"
+    echo -e "${GREEN}     📊 ЛОГИ В РЕАЛЬНОМ ВРЕМЕНИ REMNASALE${NC}"
     echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo
     echo -e "${DARKGRAY}Запуск просмотра логов...${NC}"
@@ -1685,7 +1685,7 @@ manage_uninstall_bot() {
     cd /opt || true
     clear
     echo -e "${BLUE}══════════════════════════════════════${NC}"
-    echo -e "${GREEN}       🗑️  УДАЛЕНИЕ DFC-SHOP-BOT${NC}"
+    echo -e "${GREEN}       🗑️  УДАЛЕНИЕ REMNASALE${NC}"
     echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo
     echo -e "${RED}⚠️  Внимание!${NC} Это удалит весь бот и все данные!"
@@ -1877,7 +1877,7 @@ rm -rf /tmp/remnasale-build 2>/dev/null || true
 
 clear
 echo -e "${BLUE}══════════════════════════════════════${NC}"
-echo -e "${GREEN}       🚀 УСТАНОВКА DFC-SHOP-BOT${NC}"
+echo -e "${GREEN}       🚀 УСТАНОВКА REMNASALE${NC}"
 echo -e "${BLUE}══════════════════════════════════════${NC}"
 echo
 
@@ -2618,7 +2618,7 @@ elif [ "$REVERSE_PROXY" = "nginx" ]; then
         configure_nginx "$APP_WEB_DOMAIN"
     fi
   ) &
-  show_spinner "Настройка и перезапуск Nginx"
+  show_spinner "Настройка Nginx"
 fi
 
 # 7. Запуск контейнеров из целевой папки (в фоне со спинером)
@@ -2628,7 +2628,7 @@ fi
 ) &
 show_spinner "Запуск сервисов"
 
-# 8. Ожидание запуска бота — проверяем логотип DFC в логах
+# 8. Ожидание запуска бота — проверяем логотип Remnasale в логах
 echo
 show_spinner_until_log "remnasale" "Digital.*Freedom.*Core" "Запуск бота" 90 && BOT_START_RESULT=0 || BOT_START_RESULT=$?
 echo
@@ -2646,43 +2646,57 @@ if [ ${BOT_START_RESULT:-1} -eq 0 ]; then
     echo -e "${GREEN}✅ Бот успешно установлен и запущен${NC}"
     echo -e "${WHITE}✅ Команда вызова меню бота:${NC} ${YELLOW}remnasale${NC} или ${YELLOW}remnasale${NC}"
 elif [ ${BOT_START_RESULT:-1} -eq 2 ]; then
-    echo
-    echo -e "${BLUE}══════════════════════════════════════${NC}"
-    echo -e "${RED}    ❌ ОШИБКА ПРИ ЗАПУСКЕ БОТА${NC}"
-    echo -e "${BLUE}══════════════════════════════════════${NC}"
-    echo
-    echo -e "${RED}Бот установлен, но при запуске произошла ошибка.${NC}"
-    echo
-    echo -ne "${YELLOW}Показать логи? [Y/n]: ${NC}"
-    read -n 1 -r show_logs_choice
-    echo
-    if [[ -z "$show_logs_choice" || "$show_logs_choice" =~ ^[Yy]$ ]]; then
-        echo
-        echo -e "${BLUE}══════════════════════════════════════${NC}"
-        echo -e "${RED}ЛОГИ ОШИБОК:${NC}"
-        echo -e "${BLUE}══════════════════════════════════════${NC}"
-        docker compose -f "$PROJECT_DIR/docker-compose.yml" logs --tail 50 remnasale
-        echo -e "${BLUE}══════════════════════════════════════${NC}"
-    fi
+    while true; do
+        MENU_ESC_LABEL="Выход"
+        show_arrow_menu "❌ Ошибка при запуске бота" \
+            "📜 Показать лог запуска" \
+            "──────────────────────────────────────" \
+            "❌ Выйти из программы установки"
+        local error_choice=$?
+        case $error_choice in
+            0)  # Показать логи
+                clear
+                echo -e "${BLUE}══════════════════════════════════════${NC}"
+                echo -e "${RED}ЛОГИ ОШИБОК:${NC}"
+                echo -e "${BLUE}══════════════════════════════════════${NC}"
+                docker compose -f "$PROJECT_DIR/docker-compose.yml" logs --tail 50 remnasale
+                echo -e "${BLUE}══════════════════════════════════════${NC}"
+                echo
+                echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+                read -p ""
+                continue
+                ;;
+            2|255)  # Выход / Esc
+                break
+                ;;
+        esac
+    done
 else
-    echo
-    echo -e "${BLUE}══════════════════════════════════════${NC}"
-    echo -e "${YELLOW}    ⚠️  БОТ НЕ УСПЕЛ ЗАПУСТИТЬСЯ${NC}"
-    echo -e "${BLUE}══════════════════════════════════════${NC}"
-    echo
-    echo -e "${YELLOW}Бот установлен, но не запустился в течение 90 секунд.${NC}"
-    echo
-    echo -ne "${YELLOW}Показать логи? [Y/n]: ${NC}"
-    read -n 1 -r show_logs_choice
-    echo
-    if [[ -z "$show_logs_choice" || "$show_logs_choice" =~ ^[Yy]$ ]]; then
-        echo
-        echo -e "${BLUE}══════════════════════════════════════${NC}"
-        echo -e "${WHITE}ЛОГИ БОТА:${NC}"
-        echo -e "${BLUE}══════════════════════════════════════${NC}"
-        docker compose -f "$PROJECT_DIR/docker-compose.yml" logs --tail 50 remnasale
-        echo -e "${BLUE}══════════════════════════════════════${NC}"
-    fi
+    while true; do
+        MENU_ESC_LABEL="Выход"
+        show_arrow_menu "⚠️  Запуск бота не был произведен\n       за отведенное время" \
+            "📜 Показать лог запуска" \
+            "──────────────────────────────────────" \
+            "❌ Выйти из программы установки"
+        local timeout_choice=$?
+        case $timeout_choice in
+            0)  # Показать логи
+                clear
+                echo -e "${BLUE}══════════════════════════════════════${NC}"
+                echo -e "${WHITE}ЛОГИ БОТА:${NC}"
+                echo -e "${BLUE}══════════════════════════════════════${NC}"
+                docker compose -f "$PROJECT_DIR/docker-compose.yml" logs --tail 50 remnasale
+                echo -e "${BLUE}══════════════════════════════════════${NC}"
+                echo
+                echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+                read -p ""
+                continue
+                ;;
+            2|255)  # Выход / Esc
+                break
+                ;;
+        esac
+    done
 fi
 echo
 
