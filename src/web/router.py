@@ -23,7 +23,7 @@ from pathlib import Path
 
 from fastapi import APIRouter
 
-from .routers import pages, auth, user, purchase, tickets
+from .routers import pages, auth, user, purchase, tickets, public
 from .routers.admin import brand, gateways, plans, settings, stats, tickets as admin_tickets, users
 from .routers.admin import monitoring, broadcast, promocodes, bot as admin_bot
 
@@ -39,6 +39,7 @@ router.include_router(auth.router)
 router.include_router(user.router)
 router.include_router(purchase.router)
 router.include_router(tickets.router)
+router.include_router(public.router)
 
 # Admin sub-routers
 router.include_router(stats.router)

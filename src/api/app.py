@@ -1,6 +1,6 @@
 from aiogram import Dispatcher
-from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 
@@ -14,6 +14,7 @@ from src.web.router import router as web_router
 # React miniapp build directory (copied from frontend-builder in Docker)
 import pathlib as _pl
 _MINIAPP_DIST = _pl.Path("/opt/remnasale/miniapp-dist")
+_WEBSITE_DIST = _pl.Path("/opt/remnasale/website-dist")
 
 
 def create_app(config: AppConfig, dispatcher: Dispatcher) -> FastAPI:
@@ -50,11 +51,33 @@ def create_app(config: AppConfig, dispatcher: Dispatcher) -> FastAPI:
     app.include_router(web_router, prefix="/web")
     app.state.config = config
     app.state.miniapp_dist = _MINIAPP_DIST
+    app.state.website_dist = _WEBSITE_DIST
 
-    # Root redirect — so bare domain goes to web cabinet
+    # Website static assets (served on APP_WEB_DOMAIN)
+    if _WEBSITE_DIST.exists() and (_WEBSITE_DIST / "assets").exists():
+        app.mount(
+            "/site/assets",
+            StaticFiles(directory=str(_WEBSITE_DIST / "assets")),
+            name="website-assets",
+        )
+
+    # Root — if request comes from web domain, serve website; otherwise redirect to miniapp
     @app.get("/", include_in_schema=False)
-    async def root_redirect():
+    async def root_redirect(request: Request):
+        web_domain = config.web_domain.get_secret_value()
+        host = request.headers.get("host", "").split(":")[0]
+        if web_domain and host == web_domain:
+            if _WEBSITE_DIST.exists() and (_WEBSITE_DIST / "index.html").exists():
+                return FileResponse(str(_WEBSITE_DIST / "index.html"), media_type="text/html")
         return RedirectResponse(url="/web/", status_code=302)
+
+    # Website landing page (served on APP_WEB_DOMAIN)
+    @app.get("/site/", response_class=HTMLResponse, include_in_schema=False)
+    @app.get("/site/{path:path}", response_class=HTMLResponse, include_in_schema=False)
+    async def website_page(request: Request, path: str = ""):
+        if _WEBSITE_DIST.exists() and (_WEBSITE_DIST / "index.html").exists():
+            return FileResponse(str(_WEBSITE_DIST / "index.html"), media_type="text/html")
+        return HTMLResponse("<h1>Website not built</h1>", status_code=503)
 
     telegram_webhook_endpoint = TelegramWebhookEndpoint(
         dispatcher=dispatcher,

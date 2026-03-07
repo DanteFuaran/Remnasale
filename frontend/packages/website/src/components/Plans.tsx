@@ -51,13 +51,13 @@ export default function Plans({ botUrl }: PlansProps) {
 
   useEffect(() => {
     // Fetch plans from public API
-    fetch('/web/api/plans/public')
+    fetch('/web/api/public/plans')
       .then((r) => {
         if (!r.ok) throw new Error('not available');
         return r.json();
       })
       .then((data: Plan[]) => {
-        setPlans(data.filter((p) => p.is_active));
+        setPlans(data);
         setLoading(false);
       })
       .catch(() => {
@@ -101,22 +101,18 @@ export default function Plans({ botUrl }: PlansProps) {
                 {plan.description && <div className="plan-desc">{plan.description}</div>}
 
                 <div className="plan-meta">
-                  {plan.traffic_limit != null && plan.traffic_limit > 0 && (
-                    <span className="plan-meta-item">
-                      📊 {plan.traffic_limit} ГБ
-                    </span>
-                  )}
-                  {plan.traffic_limit != null && plan.traffic_limit < 0 && (
+                  {(plan as any).is_unlimited_traffic ? (
                     <span className="plan-meta-item">📊 Безлимит</span>
-                  )}
-                  {plan.device_limit != null && plan.device_limit > 0 && (
+                  ) : plan.traffic_limit != null && plan.traffic_limit > 0 ? (
+                    <span className="plan-meta-item">📊 {plan.traffic_limit} ГБ</span>
+                  ) : null}
+                  {(plan as any).is_unlimited_devices ? (
+                    <span className="plan-meta-item">📱 Безлимит устройств</span>
+                  ) : plan.device_limit != null && plan.device_limit > 0 ? (
                     <span className="plan-meta-item">
                       📱 {plan.device_limit} {pluralRu(plan.device_limit, 'устройство', 'устройства', 'устройств')}
                     </span>
-                  )}
-                  {plan.device_limit != null && plan.device_limit < 0 && (
-                    <span className="plan-meta-item">📱 Безлимит устройств</span>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="plan-durations">

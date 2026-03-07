@@ -5,7 +5,7 @@ WORKDIR /opt/remnasale/frontend
 COPY ./frontend/package.json ./frontend/package-lock.json ./
 COPY ./frontend/packages ./packages
 
-RUN npm install && npm run build:miniapp
+RUN npm install && npm run build:miniapp && npm run build:website
 
 FROM ghcr.io/astral-sh/uv:python3.12-alpine AS builder
 
@@ -43,6 +43,7 @@ ENV PYTHONPATH=/opt/remnasale
 
 COPY ./src ./src
 COPY --from=frontend-builder /opt/remnasale/frontend/packages/miniapp/dist ./miniapp-dist
+COPY --from=frontend-builder /opt/remnasale/frontend/packages/website/dist ./website-dist
 COPY ./version ./version
 COPY ./assets /opt/remnasale/assets.default
 # translations baked directly into image for fast startup (no volume I/O overhead)
