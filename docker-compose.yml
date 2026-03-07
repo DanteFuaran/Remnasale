@@ -1,0 +1,199 @@
+services:
+  remnasale-db:
+    image: postgres:17
+    container_name: "remnasale-db"
+    hostname: remnasale-db
+    restart: unless-stopped
+
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${DATABASE_USER}
+      - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
+      - POSTGRES_DB=${DATABASE_NAME}
+      - TZ=UTC
+    
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    volumes:
+      - remnasale-db-data:/var/lib/postgresql/data
+
+    networks:
+      - remnawave-network
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    
+
+  remnasale-redis:
+    image: valkey/valkey:9-alpine
+    container_name: "remnasale-redis"
+    hostname: remnasale-redis
+    restart: unless-stopped
+
+    command: [ 
+      "--requirepass", "${REDIS_PASSWORD}",
+      "--maxmemory", "128mb",
+      "--maxmemory-policy", "allkeys-lru",
+      "--tcp-keepalive", "300"
+    ]
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+    volumes:
+      - remnasale-redis-data:/data
+
+    networks:
+      - remnawave-network
+
+    healthcheck:
+      test: ["CMD", "valkey-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    
+
+  remnasale:
+    # Образ собирается при установке, здесь только используем готовый
+    image: remnasale:local
+    container_name: "remnasale"
+    hostname: remnasale
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /opt/remnasale
+      RESET_ASSETS: "${RESET_ASSETS:-false}"
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    depends_on:
+        remnasale-db:
+          condition: service_healthy
+        remnasale-redis:
+          condition: service_healthy
+
+    ports:
+      - '127.0.0.1:5000:5000'
+
+    volumes:
+      - ./logs:/opt/remnasale/logs
+      - ./assets/banners:/opt/remnasale/assets/banners
+      - ./backups:/opt/remnasale/backups
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    networks:
+      - remnawave-network
+    
+
+  remnasale-taskiq-worker:
+    image: remnasale:local
+    container_name: "remnasale-taskiq-worker"
+    hostname: remnasale-taskiq-worker
+    restart: unless-stopped
+    command: taskiq worker src.infrastructure.taskiq.worker:worker 
+      --tasks-pattern src/infrastructure/taskiq/tasks -fsd -w 1
+
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /opt/remnasale
+      RESET_ASSETS: "${RESET_ASSETS:-false}"
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    depends_on:
+        remnasale:
+          condition: service_started
+        remnasale-redis:
+          condition: service_healthy
+        remnasale-db:
+          condition: service_healthy
+
+    volumes:
+      - ./logs:/opt/remnasale/logs
+      - ./assets/banners:/opt/remnasale/assets/banners
+      - ./backups:/opt/remnasale/backups
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    networks:
+      - remnawave-network
+
+
+  remnasale-taskiq-scheduler:
+    image: remnasale:local
+    container_name: "remnasale-taskiq-scheduler"
+    hostname: remnasale-taskiq-scheduler
+    restart: unless-stopped
+    command: taskiq scheduler src.infrastructure.taskiq.scheduler:scheduler
+      --tasks-pattern src/infrastructure/taskiq/tasks -fsd
+
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /opt/remnasale
+      RESET_ASSETS: "${RESET_ASSETS:-false}"
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+    depends_on:
+        remnasale:
+          condition: service_started
+        remnasale-redis:
+          condition: service_healthy
+        remnasale-db:
+          condition: service_healthy
+
+    volumes:
+      - ./logs:/opt/remnasale/logs
+      - ./assets/banners:/opt/remnasale/assets/banners
+      - ./backups:/opt/remnasale/backups
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    networks:
+      - remnawave-network
+
+
+networks:
+  remnawave-network:
+    name: remnawave-network 
+    driver: bridge 
+    external: true
+
+volumes:
+  remnasale-db-data:
+    name: remnasale-db-data
+    driver: local
+    external: false
+    
+  remnasale-redis-data:
+    name: remnasale-redis-data
+    driver: local
+    external: false

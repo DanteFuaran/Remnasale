@@ -1,0 +1,126 @@
+import asyncio
+from datetime import datetime, timedelta
+
+from aiogram import Bot
+from aiogram.exceptions import TelegramNetworkError
+from aiogram.methods import SetWebhook
+from aiogram.types import WebhookInfo
+from loguru import logger
+from fluentogram import TranslatorHub
+from redis.asyncio import Redis
+
+from src.core.config import AppConfig
+from src.core.security.crypto import get_webhook_hash
+from src.core.storage.keys import WebhookLockKey
+from src.core.utils.time import datetime_now
+from src.infrastructure.redis import RedisRepository
+
+from .base import BaseService
+
+_NETWORK_RETRY_ATTEMPTS = 5
+_NETWORK_RETRY_DELAY = 5  # seconds
+
+
+class WebhookService(BaseService):
+    def __init__(
+        self,
+        config: AppConfig,
+        bot: Bot,
+        redis_client: Redis,
+        redis_repository: RedisRepository,
+        translator_hub: TranslatorHub,
+    ) -> None:
+        super().__init__(config, redis_client, redis_repository, translator_hub)
+        self.bot = bot
+
+    async def setup(self, allowed_updates: list[str]) -> WebhookInfo:
+        safe_webhook_url = self.config.bot.safe_webhook_url(domain=self.config.domain)
+
+        webhook = SetWebhook(
+            url=self.config.bot.webhook_url(domain=self.config.domain).get_secret_value(),
+            allowed_updates=allowed_updates,
+            drop_pending_updates=self.config.bot.drop_pending_updates,
+            secret_token=self.config.bot.secret_token.get_secret_value(),
+        )
+
+        webhook_data = webhook.model_dump(exclude_unset=True)
+        webhook_hash: str = get_webhook_hash(webhook_data)
+
+        for attempt in range(1, _NETWORK_RETRY_ATTEMPTS + 1):
+            try:
+                if (
+                    await self._is_set(bot_id=self.bot.id, webhook_hash=webhook_hash)
+                    and not self.config.bot.reset_webhook
+                ):
+                    logger.info("Bot webhook setup skipped, already configured")
+                    logger.debug(f"Current webhook URL: '{safe_webhook_url}'")
+                    return await self.bot.get_webhook_info()
+
+                if not await self.bot(webhook):
+                    raise RuntimeError(f"Failed to set bot webhook on URL '{safe_webhook_url}'")
+
+                await self._clear(bot_id=self.bot.id)
+                await self._set(bot_id=self.bot.id, webhook_hash=webhook_hash)
+
+                logger.success("Bot webhook set successfully")
+                logger.debug(f"Webhook URL: '{safe_webhook_url}'")
+
+                return await self.bot.get_webhook_info()
+
+            except TelegramNetworkError as e:
+                if attempt < _NETWORK_RETRY_ATTEMPTS:
+                    logger.warning(
+                        f"Network error during webhook setup (attempt {attempt}/{_NETWORK_RETRY_ATTEMPTS}): {e}. "
+                        f"Retrying in {_NETWORK_RETRY_DELAY}s..."
+                    )
+                    await asyncio.sleep(_NETWORK_RETRY_DELAY)
+                else:
+                    logger.error(
+                        f"Network error during webhook setup after {_NETWORK_RETRY_ATTEMPTS} attempts: {e}"
+                    )
+                    raise
+
+    async def delete(self) -> None:
+        if not self.config.bot.reset_webhook:
+            logger.debug("Bot webhook reset is disabled")
+            return
+
+        if await self.bot.delete_webhook():
+            logger.info("Bot webhook deleted successfully")
+            await self._clear(bot_id=self.bot.id)
+        else:
+            logger.error("Failed to delete bot webhook")
+
+    def has_error(self, webhook_info: WebhookInfo) -> bool:
+        if not webhook_info.last_error_message or webhook_info.last_error_date is None:
+            return False
+
+        if self._is_new_error(error_time=webhook_info.last_error_date):
+            return True
+        else:
+            return False
+
+    def _is_new_error(self, error_time: datetime, tolerance: int = 5) -> bool:
+        current_time = datetime_now()
+        time_difference = current_time - error_time
+        return time_difference <= timedelta(seconds=tolerance)
+
+    async def _is_set(self, bot_id: int, webhook_hash: str) -> bool:
+        key: WebhookLockKey = WebhookLockKey(bot_id=bot_id, webhook_hash=webhook_hash)
+        return await self.redis_repository.exists(key)
+
+    async def _set(self, bot_id: int, webhook_hash: str) -> None:
+        key: WebhookLockKey = WebhookLockKey(bot_id=bot_id, webhook_hash=webhook_hash)
+        await self.redis_repository.set(key, value=None)
+        logger.debug(f"Set webhook lock key '{key.pack()}' in Redis")
+
+    async def _clear(self, bot_id: int) -> None:
+        key: WebhookLockKey = WebhookLockKey(bot_id=bot_id, webhook_hash="*")
+        keys: list[bytes] = await self.redis_repository.client.keys(key.pack())
+
+        if not keys:
+            logger.debug(f"No webhook lock keys to clear for bot '{bot_id}'")
+            return
+
+        await self.redis_repository.client.delete(*keys)
+        logger.debug(f"Cleared '{len(keys)}' webhook lock keys for bot '{bot_id}'")
