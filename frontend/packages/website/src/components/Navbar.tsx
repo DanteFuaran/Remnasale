@@ -26,27 +26,41 @@ export default function Navbar({ botUrl, oauthProviders, brand }: NavbarProps) {
   const logoSrc = brand?.logo || DEFAULT_LOGO;
   const siteName = brand?.name || DEFAULT_NAME;
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
-  useEffect(() => {
-    fetch('/web/api/user/data', { credentials: 'include' })
+  const fetchUser = (silent = false) => {
+    return fetch('/web/api/user/data', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (d?.user) setAuthUser({
-          name: d.user.name,
-          telegram_id: d.user.telegram_id,
-          balance: d.user.balance ?? 0,
-          referral_balance: d.user.referral_balance ?? 0,
-          balance_mode: d.features?.balance_mode ?? 'separate',
-          role: d.user.role,
-        });
+        if (d?.user) {
+          setAuthUser({
+            name: d.user.name,
+            telegram_id: d.user.telegram_id,
+            balance: d.user.balance ?? 0,
+            referral_balance: d.user.referral_balance ?? 0,
+            balance_mode: d.features?.balance_mode ?? 'separate',
+            role: d.user.role,
+          });
+        } else if (!silent) {
+          setAuthUser(null);
+        }
       })
-      .catch(() => {});
-  }, [location.pathname]);
+      .catch(() => {})
+      .finally(() => { if (!silent) setAuthChecked(true); });
+  };
+
+  // Initial auth check — runs once on mount
+  useEffect(() => { fetchUser(false); }, []);
+
+  // Silent balance refresh on route change (auth state already known — no flash)
+  useEffect(() => {
+    if (authChecked) fetchUser(true);
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close menu on outside click
   useEffect(() => {
@@ -62,6 +76,7 @@ export default function Navbar({ botUrl, oauthProviders, brand }: NavbarProps) {
   const handleLogout = async () => {
     await fetch('/web/api/auth/logout', { method: 'POST', credentials: 'include' });
     setAuthUser(null);
+    setAuthChecked(true);
     setShowMenu(false);
     navigate('/');
   };
@@ -134,11 +149,11 @@ export default function Navbar({ botUrl, oauthProviders, brand }: NavbarProps) {
                   </div>
                 )}
               </div>
-            ) : (
+            ) : authChecked ? (
               <button className="navbar-login-btn" onClick={() => setShowModal(true)}>
                 Вход
               </button>
-            )}
+            ) : null}
           </div>
         </div>
       </nav>
