@@ -2238,15 +2238,15 @@ extract_cert_domain() {
     local base_domain
     base_domain=$(echo "$domain" | awk -F. '{print $(NF-1)"."$NF}')
 
-    # Сначала проверяем wildcard (базовый домен)
-    if [ -d "/etc/letsencrypt/live/$base_domain" ]; then
-        echo "$base_domain"
+    # Сначала проверяем прямой сертификат для конкретного домена
+    if [ -d "/etc/letsencrypt/live/$domain" ]; then
+        echo "$domain"
         return
     fi
 
-    # Затем прямой сертификат
-    if [ -d "/etc/letsencrypt/live/$domain" ]; then
-        echo "$domain"
+    # Затем wildcard (базовый домен)
+    if [ -d "/etc/letsencrypt/live/$base_domain" ]; then
+        echo "$base_domain"
         return
     fi
 
