@@ -1965,35 +1965,31 @@ remove_from_nginx() {
     # Если nginx.conf нет — выходим
     [ -f "$nginx_conf" ] || return 0
 
-    # Получаем домен из .env
-    local app_domain=""
-    if [ -f "$ENV_FILE" ]; then
-        app_domain=$(grep "^APP_DOMAIN=" "$ENV_FILE" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
-    fi
-
-    # Если домен не найден, выходим
-    [ -z "$app_domain" ] && return 0
+    # Собираем домены remnasale server-блоков ДО удаления (для очистки cert volumes)
+    local -a remnasale_domains=()
+    while IFS= read -r d; do
+        [ -n "$d" ] && remnasale_domains+=("$d")
+    done < <(awk '
+        /^server \{/ { block = 1; buf = $0 "\n"; sn = ""; next }
+        block && /server_name / { gsub(/;/, ""); for(i=1;i<=NF;i++) if($i!="server_name") sn = sn " " $i }
+        block && /^\}/ {
+            buf = buf $0 "\n"
+            if (buf ~ /proxy_pass http:\/\/remnasale/) { gsub(/^ /, "", sn); print sn }
+            block = 0; buf = ""; sn = ""
+            next
+        }
+        block { buf = buf $0 "\n"; next }
+    ' "$nginx_conf")
 
     # Удаляем upstream remnasale блок
     sed -i '/^upstream remnasale {$/,/^}$/d' "$nginx_conf" 2>/dev/null || true
 
-    # Удаляем server блок для домена бота
-    local escaped_domain
-    escaped_domain=$(printf '%s' "$app_domain" | sed 's/[.[\/\*^$]/\\&/g')
-    sed -i "/^server {$/,/^}$/{/server_name ${escaped_domain};/{ 
-        # Нашли нужный server блок — удаляем его целиком
-        :start
-        N
-        /^}$/!b start
-        d
-    }}" "$nginx_conf" 2>/dev/null || true
-
-    # Более надёжный вариант: используем awk для удаления server блока
-    awk -v domain="$app_domain" '
+    # Удаляем ВСЕ server-блоки, проксирующие на remnasale
+    awk '
         /^server \{/ { block = 1; buf = $0 "\n"; next }
         block && /^\}/ {
             buf = buf $0 "\n"
-            if (buf ~ "server_name " domain ";") {
+            if (buf ~ /proxy_pass http:\/\/remnasale/) {
                 block = 0; buf = ""; next
             }
             printf "%s", buf
@@ -2012,16 +2008,14 @@ remove_from_nginx() {
         sed -i "/^      - '127.0.0.1:5000:5000'$/d" "$PROJECT_DIR/docker-compose.yml" 2>/dev/null || true
     fi
 
-    # Примечание: volume сертификатов в remnawave docker-compose не удаляем,
-    # т.к. они могут использоваться другими сервисами (wildcard cert)
-
-    # Удаляем volume-маунты сертификата бота из remnawave docker-compose.yml
+    # Удаляем volume-маунты сертификатов remnasale-доменов из remnawave docker-compose.yml
     local remnawave_compose="$remnawave_dir/docker-compose.yml"
-    if [ -f "$remnawave_compose" ] && [ -n "$app_domain" ]; then
-        local cert_domain_for_cleanup
-        cert_domain_for_cleanup=$(extract_cert_domain "$app_domain" 2>/dev/null || echo "$app_domain")
-        # Удаляем строки volume-маунтов где присутствует домен сертификата
-        sed -i "/${cert_domain_for_cleanup//./\\.}/d" "$remnawave_compose" 2>/dev/null || true
+    if [ -f "$remnawave_compose" ] && [ ${#remnasale_domains[@]} -gt 0 ]; then
+        for domain in "${remnasale_domains[@]}"; do
+            local cert_domain
+            cert_domain=$(extract_cert_domain "$domain" 2>/dev/null || echo "$domain")
+            sed -i "/${cert_domain//./\\.}/d" "$remnawave_compose" 2>/dev/null || true
+        done
     fi
 
     # Сбрасываем WEBHOOK_ENABLED=false в .env бота
@@ -2218,7 +2212,7 @@ NGINXBLOCK
                 # Для unix_socket монтируем в /etc/nginx/ssl/ (xray-сетап)
                 # Для direct монтируем в /etc/letsencrypt/live/ (стандартный nginx)
                 # Всегда монтируем в /etc/nginx/ssl/ — именно там nginx.conf ищет сертификаты
-                sed -i "/nginx.conf:\/etc\/nginx\/conf.d\/default.conf:ro/a\\      - /etc/letsencrypt/live/${cert_domain}/fullchain.pem:/etc/nginx/ssl/${cert_domain}/fullchain.pem:ro\n      - /etc/letsencrypt/live/${cert_domain}/privkey.pem:/etc/nginx/ssl/${cert_domain}/privkey.pem:ro" "$remnawave_compose" 2>/dev/null || true
+                sed -i "/nginx\.conf:\/etc\/nginx\/nginx\.conf:ro/a\\      - /etc/letsencrypt/live/${cert_domain}/fullchain.pem:/etc/nginx/ssl/${cert_domain}/fullchain.pem:ro\n      - /etc/letsencrypt/live/${cert_domain}/privkey.pem:/etc/nginx/ssl/${cert_domain}/privkey.pem:ro" "$remnawave_compose" 2>/dev/null || true
             fi
         fi
     fi
