@@ -728,14 +728,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         """Quick lightweight check if remnawave panel is reachable."""
         import httpx as _httpx
         try:
-            _url = f"{config.remnawave.url.get_secret_value()}/api/system/stats"
-            _headers = {
-                "Authorization": f"Bearer {config.remnawave.token.get_secret_value()}",
-            }
-            if hasattr(config.remnawave, 'caddy_token') and config.remnawave.caddy_token:
-                _headers["X-Api-Key"] = config.remnawave.caddy_token.get_secret_value()
+            _host = config.remnawave.host.get_secret_value()
+            _metrics_port = 3001
+            _url = f"http://{_host}:{_metrics_port}/health"
             async with _httpx.AsyncClient(timeout=_httpx.Timeout(5.0), verify=False) as _client:
-                _resp = await _client.get(_url, headers=_headers)
+                _resp = await _client.get(_url)
                 return _resp.is_success
         except Exception:
             return False
