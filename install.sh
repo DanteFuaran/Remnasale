@@ -139,7 +139,7 @@ show_spinner_until_log() {
   
   while [ $elapsed -lt $timeout ]; do
     # Анимация спинера
-    printf "\r${DARKGRAY}%s  %s (%d/%d сек)${NC}" "${spin[$i]}" "$msg" "$elapsed" "$timeout"
+    printf "\r${GREEN}%s${NC}  %s ${DARKGRAY}(%d/%d сек)${NC}" "${spin[$i]}" "$msg" "$elapsed" "$timeout"
     i=$(( (i+1) % 10 ))
     sleep $delay
     loop_count=$((loop_count + 1))
@@ -950,7 +950,8 @@ manage_update_bot() {
         echo
         echo -e "${YELLOW}🚀 Запуск обновления...${NC}"
         echo
-        
+        echo -e "${BLUE}──────────────────────────────────────${NC}"
+        echo
         # Сохраняем критические переменные перед обновлением
         ENV_BACKUP_FILE=$(preserve_env_vars "$ENV_FILE")
             
@@ -1047,14 +1048,10 @@ manage_update_bot() {
                 show_spinner "Применение сохранённых параметров"
             fi
             
-            # Запускаем контейнеры один раз с уже обновлёнными параметрами
-            {
-                cd "$PROJECT_DIR" || return
-                docker compose up -d >/dev/null 2>&1
-            } &
-            show_spinner "Запуск сервисов"
+            # Запускаем контейнеры и ожидаем запуска бота
+            cd "$PROJECT_DIR" || return
+            docker compose up -d >/dev/null 2>&1
             
-            # Ожидание запуска бота
             echo
             
             # Ждем появления логотипа Remnasale в логах
@@ -2643,14 +2640,10 @@ elif [ "$REVERSE_PROXY" = "nginx" ]; then
   show_spinner "Настройка Nginx"
 fi
 
-# 7. Запуск контейнеров из целевой папки (в фоне со спинером)
-(
-  cd "$PROJECT_DIR"
-  docker compose up -d >/dev/null 2>&1
-) &
-show_spinner "Запуск сервисов"
+# 7. Запуск контейнеров и ожидание запуска бота
+cd "$PROJECT_DIR"
+docker compose up -d >/dev/null 2>&1
 
-# 8. Ожидание запуска бота — проверяем логотип Remnasale в логах
 echo
 show_spinner_until_log "remnasale" "Digital.*Freedom.*Core" "Запуск бота" 90 && BOT_START_RESULT=0 || BOT_START_RESULT=$?
 echo
