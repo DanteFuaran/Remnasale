@@ -731,6 +731,7 @@ ntf-gateway-test-payment-created = <i>✅ <a href="{ $url }">Тестовый п
 ntf-gateway-test-payment-error = <i>❌ Произошла ошибка при создании тестового платежа.</i>
 ntf-gateway-test-payment-confirmed = <i>✅ Тестовый платеж успешно обработан.</i>
 
+ntf-panel-unavailable = <i>⚠️ Оплата подписки в данный момент недоступна по техническим причинам. Пожалуйста, попробуйте позже.</i>
 ntf-subscription-plans-not-available = <i>❌ Нет доступных планов.</i>
 ntf-subscription-gateways-not-available = <i>❌ Нет доступных платежных систем.</i>
 ntf-subscription-renew-plan-unavailable = <i>❌ Ваш план устарел и не доступен для продления.</i>

@@ -101,6 +101,11 @@ class RemnawaveService(BaseService):
         if not isinstance(response, GetStatsResponseDto):
             raise ValueError(f"Invalid response from Remnawave panel: {response}")
 
+    async def is_panel_available(self) -> bool:
+        """Check if remnawave panel is available (cached in Redis)."""
+        from src.core.utils.remnawave_status import is_remnawave_available
+        return await is_remnawave_available(self.redis_client)
+
     async def _validate_and_get_squads(
         self,
         internal_squads: list[UUID] | None,

@@ -233,6 +233,15 @@ async def on_get_trial(
     
     logger.info(f"on_get_trial: User {user.telegram_id} clicked 'Get trial'")
     
+    # Check remnawave panel availability before creating trial
+    if not await remnawave_service.is_panel_available():
+        await callback.answer(
+            "Получение пробной подписки в данный момент недоступно по техническим причинам. "
+            "Пожалуйста, попробуйте позже.",
+            show_alert=True,
+        )
+        return
+    
     # 0. Проверяем, использовал ли пользователь уже пробную подписку
     has_used = await subscription_service.has_used_trial(user.telegram_id)
     if has_used:

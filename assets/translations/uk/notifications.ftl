@@ -704,6 +704,7 @@ ntf-gateway-test-payment-created = <i>✅ <a href="{ $url }">Тестовий п
 ntf-gateway-test-payment-error = <i>❌ Помилка створення тестового платежу.</i>
 ntf-gateway-test-payment-confirmed = <i>✅ Тестовий платіж успішно оброблено.</i>
 
+ntf-panel-unavailable = <i>⚠️ Оплата підписки наразі недоступна з технічних причин. Будь ласка, спробуйте пізніше.</i>
 ntf-subscription-plans-not-available = <i>❌ Немає доступних планів.</i>
 ntf-subscription-gateways-not-available = <i>❌ Немає доступних платіжних систем.</i>
 ntf-subscription-renew-plan-unavailable = <i>❌ Ваш план застарів і недоступний для продовження.</i>

@@ -704,6 +704,7 @@ ntf-gateway-test-payment-created = <i>✅ <a href="{ $url }">Test payment</a> cr
 ntf-gateway-test-payment-error = <i>❌ Error creating test payment.</i>
 ntf-gateway-test-payment-confirmed = <i>✅ Test payment processed successfully.</i>
 
+ntf-panel-unavailable = <i>⚠️ Subscription payment is temporarily unavailable due to technical reasons. Please try again later.</i>
 ntf-subscription-plans-not-available = <i>❌ No available plans.</i>
 ntf-subscription-gateways-not-available = <i>❌ No available payment systems.</i>
 ntf-subscription-renew-plan-unavailable = <i>❌ Your plan is outdated and not available for renewal.</i>

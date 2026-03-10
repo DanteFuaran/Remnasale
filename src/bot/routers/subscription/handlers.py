@@ -223,8 +223,21 @@ async def on_purchase_type_select(
     payment_gateway_service: FromDishka[PaymentGatewayService],
     notification_service: FromDishka[NotificationService],
     settings_service: FromDishka[SettingsService],
+    remnawave_service: FromDishka[RemnawaveService],
 ) -> None:
     user: UserDto = dialog_manager.middleware_data[USER_KEY]
+
+    # Check remnawave panel availability before allowing subscription operations
+    if not await remnawave_service.is_panel_available():
+        await notification_service.notify_user(
+            user=user,
+            payload=MessagePayload(
+                i18n_key="ntf-panel-unavailable",
+                auto_delete_after=5,
+            ),
+        )
+        return
+
     plans: list[PlanDto] = await plan_service.get_available_plans(user)
     gateways = await payment_gateway_service.filter_active()
     dialog_manager.dialog_data["purchase_type"] = purchase_type
@@ -724,9 +737,20 @@ async def on_confirm_balance_payment(
     settings_service: FromDishka[SettingsService],
     extra_device_service: FromDishka[ExtraDeviceService],
     referral_service: FromDishka[ReferralService],
+    remnawave_service: FromDishka[RemnawaveService],
 ) -> None:
     """Handle confirmation of balance payment."""
     middleware_user: UserDto = dialog_manager.middleware_data[USER_KEY]
+
+    # Check remnawave panel availability before processing payment
+    if not await remnawave_service.is_panel_available():
+        await callback.answer(
+            "Оплата подписки в данный момент недоступна по техническим причинам. "
+            "Пожалуйста, попробуйте позже.",
+            show_alert=True,
+        )
+        return
+
     logger.info(f"{log(middleware_user)} Starting balance payment confirmation")
     
     # Получаем свежие данные пользователя из БД (без кэша), чтобы учесть актуальные скидки

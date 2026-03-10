@@ -471,8 +471,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             except Exception as e:
                 logger.warning(f"Failed to sync DEV user subscription from Remnawave: {e}")
 
+        # Remnawave is reachable at startup
+        from src.core.utils.remnawave_status import set_remnawave_status
+        await set_remnawave_status(redis_repository.client, True)
+
     except Exception as exception:
         logger.exception(f"Remnawave connection failed: {exception}")
+
+        # Mark remnawave as unavailable at startup
+        from src.core.utils.remnawave_status import set_remnawave_status
+        try:
+            await set_remnawave_status(redis_repository.client, False)
+        except Exception:
+            pass
+
         error_type_name = type(exception).__name__
         error_message = Text(str(exception)[:512])
 
@@ -708,6 +720,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Periodically checks webhook status. If webhook becomes unavailable
     # (e.g. remnawave-nginx stopped), switches to polling so the bot
     # stays responsive. When webhook is restored, switches back.
+    # Also tracks remnawave panel availability for subscription operations.
+
+    async def _check_remnawave_reachable() -> bool:
+        """Quick lightweight check if remnawave panel is reachable."""
+        import httpx as _httpx
+        try:
+            _url = f"{config.remnawave.url}/api/system/stats"
+            _headers = {
+                "Authorization": f"Bearer {config.remnawave.token.get_secret_value()}",
+            }
+            if hasattr(config.remnawave, 'caddy_token') and config.remnawave.caddy_token:
+                _headers["X-Api-Key"] = config.remnawave.caddy_token.get_secret_value()
+            async with _httpx.AsyncClient(timeout=_httpx.Timeout(5.0), verify=False) as _client:
+                _resp = await _client.get(_url, headers=_headers)
+                return _resp.is_success
+        except Exception:
+            return False
+
     async def _webhook_health_monitor() -> None:
         """Background task: monitors webhook health and toggles polling."""
         nonlocal polling_task, use_polling
@@ -718,50 +748,34 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         while True:
             await asyncio.sleep(check_interval)
             try:
+                # Check remnawave panel availability and store in Redis
+                remnawave_ok = await _check_remnawave_reachable()
+                from src.core.utils.remnawave_status import set_remnawave_status
+                await set_remnawave_status(_redis, remnawave_ok)
+
                 wh_info = await bot.get_webhook_info()
 
                 if use_polling:
-                    # Currently in polling mode — try to restore webhook
-                    if not wh_info.url:
-                        # No webhook set — try to re-establish
-                        try:
-                            await webhook_service.setup(allowed_updates)
-                            logger.info("Webhook restored — switching back from polling")
-                            # Cancel polling task
-                            if polling_task and not polling_task.done():
-                                polling_task.cancel()
-                                try:
-                                    await polling_task
-                                except asyncio.CancelledError:
-                                    pass
-                                polling_task = None
-                            use_polling = False
-                            consecutive_errors = 0
-                        except Exception:
-                            pass  # stay in polling
-                    elif wh_info.url and wh_info.last_error_date:
-                        # Webhook is set but still has errors — try re-setup
-                        if webhook_service.has_error(wh_info):
-                            pass  # stay in polling
-                        else:
-                            # Error is old — webhook might be working again
-                            try:
-                                await webhook_service.setup(allowed_updates)
-                                logger.info("Webhook restored — switching back from polling")
-                                if polling_task and not polling_task.done():
-                                    polling_task.cancel()
-                                    try:
-                                        await polling_task
-                                    except asyncio.CancelledError:
-                                        pass
-                                    polling_task = None
-                                use_polling = False
-                                consecutive_errors = 0
-                            except Exception:
-                                pass
-                    elif wh_info.url and not wh_info.last_error_message:
-                        # Webhook is set and has no errors — restore
-                        logger.info("Webhook healthy again — switching back from polling")
+                    # Currently in polling mode — only try to restore webhook
+                    # if remnawave is actually reachable
+                    if not remnawave_ok:
+                        logger.debug("Polling mode: remnawave still unreachable, staying in polling")
+                        continue
+
+                    # Remnawave is back — try to restore webhook
+                    try:
+                        # Clear webhook hash so setup() actually re-sets the webhook
+                        await webhook_service._clear(bot_id=bot.id)
+                        await webhook_service.setup(allowed_updates)
+                        # Verify webhook is working — wait and re-check
+                        await asyncio.sleep(10)
+                        verify_info = await bot.get_webhook_info()
+                        if verify_info.last_error_message and webhook_service.has_error(verify_info):
+                            # Webhook still failing after setup — stay in polling
+                            logger.warning("Webhook re-setup succeeded but still has errors, staying in polling")
+                            continue
+
+                        logger.info("Webhook restored — switching back from polling")
                         if polling_task and not polling_task.done():
                             polling_task.cancel()
                             try:
@@ -771,6 +785,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                             polling_task = None
                         use_polling = False
                         consecutive_errors = 0
+                    except Exception:
+                        pass  # stay in polling
                 else:
                     # Currently in webhook mode — check for errors
                     if wh_info.last_error_message and webhook_service.has_error(wh_info):
