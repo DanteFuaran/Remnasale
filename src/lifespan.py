@@ -728,7 +728,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         """Quick lightweight check if remnawave panel is reachable."""
         import httpx as _httpx
         try:
-            _url = f"{config.remnawave.url}/api/system/stats"
+            _url = f"{config.remnawave.url.get_secret_value()}/api/system/stats"
             _headers = {
                 "Authorization": f"Bearer {config.remnawave.token.get_secret_value()}",
             }
