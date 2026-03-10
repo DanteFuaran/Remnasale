@@ -285,6 +285,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Delete any existing webhook so Telegram allows getUpdates
         try:
             await bot.delete_webhook(drop_pending_updates=False)
+            await webhook_service._clear(bot_id=bot.id)
+            logger.info("Webhook lock cleared from Redis (startup polling fallback)")
         except Exception:
             pass
 
@@ -801,6 +803,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                             consecutive_errors = 0
                             try:
                                 await bot.delete_webhook(drop_pending_updates=False)
+                                await webhook_service._clear(bot_id=bot.id)
+                                logger.info("Webhook lock cleared from Redis (polling fallback)")
                             except Exception:
                                 pass
 
