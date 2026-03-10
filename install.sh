@@ -2667,6 +2667,8 @@ if [ ${BOT_START_RESULT:-1} -eq 0 ]; then
     echo
     echo -e "${GREEN}✅ Бот успешно установлен и запущен${NC}"
     echo
+    echo -e "${BLUE}──────────────────────────────────────${NC}"
+    echo
     echo -e "${WHITE}✅ Команда вызова меню бота:${NC} ${YELLOW}remnasale${NC} или ${YELLOW}rs${NC}"
     echo
     echo -e "${BLUE}══════════════════════════════════════${NC}"
