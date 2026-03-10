@@ -258,17 +258,61 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await startup_container.close()
 
     allowed_updates = dispatcher.resolve_used_update_types()
-    webhook_info: WebhookInfo = await webhook_service.setup(allowed_updates)
 
-    if webhook_service.has_error(webhook_info):
-        logger.critical(f"Webhook has a last error message: '{webhook_info.last_error_message}'")
-        await notification_service.system_notify(
-            ntf_type=SystemNotificationType.BOT_LIFETIME,
-            payload=MessagePayload.not_deleted(
-                i18n_key="ntf-event-error-webhook",
-                i18n_kwargs={"error": webhook_info.last_error_message},
-            ),
-        )
+    # ── Webhook setup with polling fallback ─────────────────────────────
+    # If the webhook URL is unreachable (e.g. remnawave-nginx is down),
+    # the bot switches to long-polling mode so the DEV user can still
+    # manage the bot (DB backups, logs, etc.) without remnawave.
+    polling_task: Optional[asyncio.Task] = None
+    use_polling = False
+
+    try:
+        webhook_info: WebhookInfo = await webhook_service.setup(allowed_updates)
+
+        if webhook_service.has_error(webhook_info):
+            logger.critical(f"Webhook has a last error message: '{webhook_info.last_error_message}'")
+            await notification_service.system_notify(
+                ntf_type=SystemNotificationType.BOT_LIFETIME,
+                payload=MessagePayload.not_deleted(
+                    i18n_key="ntf-event-error-webhook",
+                    i18n_kwargs={"error": webhook_info.last_error_message},
+                ),
+            )
+    except Exception as e:
+        logger.warning(f"Webhook setup failed: {e}. Switching to polling mode...")
+        use_polling = True
+
+        # Delete any existing webhook so Telegram allows getUpdates
+        try:
+            await bot.delete_webhook(drop_pending_updates=False)
+        except Exception:
+            pass
+
+        async def _polling_loop() -> None:
+            """Long-polling fallback — fetches updates when webhook is unavailable."""
+            offset: Optional[int] = None
+            logger.info("Polling mode active — fetching updates via getUpdates")
+            while True:
+                try:
+                    updates = await bot.get_updates(
+                        offset=offset,
+                        timeout=30,
+                        allowed_updates=allowed_updates,
+                    )
+                    for update in updates:
+                        offset = update.update_id + 1
+                        try:
+                            await dispatcher.feed_update(bot=bot, update=update)
+                        except Exception as feed_err:
+                            logger.error(f"Polling: failed to process update {update.update_id}: {feed_err}")
+                except asyncio.CancelledError:
+                    raise
+                except Exception as poll_err:
+                    logger.warning(f"Polling error: {poll_err}. Retrying in 5s...")
+                    await asyncio.sleep(5)
+
+        polling_task = asyncio.create_task(_polling_loop())
+        app.state.polling_task = polling_task
 
     await command_service.setup()
     await telegram_webhook_endpoint.startup()
@@ -660,7 +704,134 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"Failed to start keepalive task: {e}")
 
+    # ── Webhook health monitor ────────────────────────────────────────
+    # Periodically checks webhook status. If webhook becomes unavailable
+    # (e.g. remnawave-nginx stopped), switches to polling so the bot
+    # stays responsive. When webhook is restored, switches back.
+    async def _webhook_health_monitor() -> None:
+        """Background task: monitors webhook health and toggles polling."""
+        nonlocal polling_task, use_polling
+        check_interval = 60  # seconds between health checks
+        consecutive_errors = 0
+        errors_threshold = 2  # switch to polling after N consecutive errors
+
+        while True:
+            await asyncio.sleep(check_interval)
+            try:
+                wh_info = await bot.get_webhook_info()
+
+                if use_polling:
+                    # Currently in polling mode — try to restore webhook
+                    if not wh_info.url:
+                        # No webhook set — try to re-establish
+                        try:
+                            await webhook_service.setup(allowed_updates)
+                            logger.info("Webhook restored — switching back from polling")
+                            # Cancel polling task
+                            if polling_task and not polling_task.done():
+                                polling_task.cancel()
+                                try:
+                                    await polling_task
+                                except asyncio.CancelledError:
+                                    pass
+                                polling_task = None
+                            use_polling = False
+                            consecutive_errors = 0
+                        except Exception:
+                            pass  # stay in polling
+                    elif wh_info.url and wh_info.last_error_date:
+                        # Webhook is set but still has errors — try re-setup
+                        if webhook_service.has_error(wh_info):
+                            pass  # stay in polling
+                        else:
+                            # Error is old — webhook might be working again
+                            try:
+                                await webhook_service.setup(allowed_updates)
+                                logger.info("Webhook restored — switching back from polling")
+                                if polling_task and not polling_task.done():
+                                    polling_task.cancel()
+                                    try:
+                                        await polling_task
+                                    except asyncio.CancelledError:
+                                        pass
+                                    polling_task = None
+                                use_polling = False
+                                consecutive_errors = 0
+                            except Exception:
+                                pass
+                    elif wh_info.url and not wh_info.last_error_message:
+                        # Webhook is set and has no errors — restore
+                        logger.info("Webhook healthy again — switching back from polling")
+                        if polling_task and not polling_task.done():
+                            polling_task.cancel()
+                            try:
+                                await polling_task
+                            except asyncio.CancelledError:
+                                pass
+                            polling_task = None
+                        use_polling = False
+                        consecutive_errors = 0
+                else:
+                    # Currently in webhook mode — check for errors
+                    if wh_info.last_error_message and webhook_service.has_error(wh_info):
+                        consecutive_errors += 1
+                        logger.warning(
+                            f"Webhook error detected ({consecutive_errors}/{errors_threshold}): "
+                            f"{wh_info.last_error_message}"
+                        )
+                        if consecutive_errors >= errors_threshold:
+                            logger.warning("Webhook unreachable — switching to polling mode")
+                            use_polling = True
+                            consecutive_errors = 0
+                            try:
+                                await bot.delete_webhook(drop_pending_updates=False)
+                            except Exception:
+                                pass
+
+                            async def _fallback_polling() -> None:
+                                _offset: Optional[int] = None
+                                logger.info("Fallback polling active")
+                                while True:
+                                    try:
+                                        _updates = await bot.get_updates(
+                                            offset=_offset, timeout=30,
+                                            allowed_updates=allowed_updates,
+                                        )
+                                        for _upd in _updates:
+                                            _offset = _upd.update_id + 1
+                                            try:
+                                                await dispatcher.feed_update(bot=bot, update=_upd)
+                                            except Exception as _fe:
+                                                logger.error(f"Polling feed error: {_fe}")
+                                    except asyncio.CancelledError:
+                                        raise
+                                    except Exception as _pe:
+                                        logger.warning(f"Polling error: {_pe}. Retrying in 5s...")
+                                        await asyncio.sleep(5)
+
+                            polling_task = asyncio.create_task(_fallback_polling())
+                            app.state.polling_task = polling_task
+                    else:
+                        consecutive_errors = 0
+            except asyncio.CancelledError:
+                raise
+            except Exception as monitor_err:
+                logger.debug(f"Webhook monitor check failed: {monitor_err}")
+
+    _webhook_monitor_task = asyncio.create_task(_webhook_health_monitor())
+    app.state.webhook_monitor_task = _webhook_monitor_task
+    logger.info("Webhook health monitor started")
+
     yield
+
+    # ── Cancel webhook monitor task ─────────────────────────────────────
+    _wh_monitor = getattr(app.state, "webhook_monitor_task", None)
+    if _wh_monitor and not _wh_monitor.done():
+        _wh_monitor.cancel()
+        try:
+            await _wh_monitor
+        except asyncio.CancelledError:
+            pass
 
     # ── Cancel keepalive task ───────────────────────────────────────────
     keepalive_task = getattr(app.state, "keepalive_task", None)
@@ -668,6 +839,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         keepalive_task.cancel()
         try:
             await keepalive_task
+        except asyncio.CancelledError:
+            pass
+
+    # ── Cancel polling task (if active) ─────────────────────────────────
+    _polling_task = getattr(app.state, "polling_task", None)
+    if _polling_task and not _polling_task.done():
+        _polling_task.cancel()
+        try:
+            await _polling_task
         except asyncio.CancelledError:
             pass
 

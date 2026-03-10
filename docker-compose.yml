@@ -185,7 +185,7 @@ networks:
   remnawave-network:
     name: remnawave-network 
     driver: bridge 
-    external: true
+    external: false
 
 volumes:
   remnasale-db-data:
