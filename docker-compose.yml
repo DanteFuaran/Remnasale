@@ -101,6 +101,13 @@ services:
       - ./backups:/opt/remnasale/backups
       - /var/run/docker.sock:/var/run/docker.sock
 
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
     networks:
       - remnawave-network
     
@@ -127,7 +134,7 @@ services:
 
     depends_on:
         remnasale:
-          condition: service_started
+          condition: service_healthy
         remnasale-redis:
           condition: service_healthy
         remnasale-db:
@@ -138,6 +145,13 @@ services:
       - ./assets/banners:/opt/remnasale/assets/banners
       - ./backups:/opt/remnasale/backups
       - /var/run/docker.sock:/var/run/docker.sock
+
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import socket; s=socket.create_connection((\"remnasale-redis\",6379),3); s.close()'"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
     networks:
       - remnawave-network
@@ -165,7 +179,7 @@ services:
 
     depends_on:
         remnasale:
-          condition: service_started
+          condition: service_healthy
         remnasale-redis:
           condition: service_healthy
         remnasale-db:
@@ -176,6 +190,13 @@ services:
       - ./assets/banners:/opt/remnasale/assets/banners
       - ./backups:/opt/remnasale/backups
       - /var/run/docker.sock:/var/run/docker.sock
+
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import socket; s=socket.create_connection((\"remnasale-redis\",6379),3); s.close()'"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
     networks:
       - remnawave-network

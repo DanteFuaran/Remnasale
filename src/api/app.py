@@ -19,6 +19,11 @@ _WEBSITE_DIST = _pl.Path("/opt/remnasale/website-dist")
 
 def create_app(config: AppConfig, dispatcher: Dispatcher) -> FastAPI:
     app: FastAPI = FastAPI(lifespan=lifespan)
+
+    @app.get("/health", include_in_schema=False)
+    async def health():
+        return {"status": "ok"}
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=config.origins,

@@ -1031,7 +1031,7 @@ manage_update_bot() {
             {
                 # Собираем образ из временной папки с исходниками
                 cd "$TEMP_REPO" || return
-                docker build --no-cache -t remnasale:local \
+                docker build -t remnasale:local \
                     --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
                     --build-arg BUILD_BRANCH="$REPO_BRANCH" \
                     --build-arg BUILD_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')" \
