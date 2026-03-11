@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+.env.*
+*.md
+LICENSE
+Makefile
+backups
+logs
+frontend/node_modules
+__pycache__
+*.pyc
+.mypy_cache
+.pytest_cache
+.ruff_cache
