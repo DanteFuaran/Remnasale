@@ -8,7 +8,7 @@ REMNAWAVE_STATUS_KEY = "remnawave:panel_available"
 async def is_remnawave_available(redis_client: Redis) -> bool:
     val = await redis_client.get(REMNAWAVE_STATUS_KEY)
     if val is None:
-        return True  # Assume available if no status recorded yet
+        return False  # Assume unavailable if no status recorded yet
     return val in (b"1", "1")
 
 

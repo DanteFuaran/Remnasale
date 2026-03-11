@@ -26,7 +26,7 @@ class RemnawaveProvider(Provider):
             headers=headers,
             cookies=config.remnawave.cookies,
             verify=True,
-            timeout=Timeout(connect=15.0, read=25.0, write=10.0, pool=5.0),
+            timeout=Timeout(connect=5.0, read=25.0, write=10.0, pool=5.0),
         )
 
         return RemnawaveSDK(client)

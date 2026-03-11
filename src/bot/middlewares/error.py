@@ -2,7 +2,7 @@ import traceback
 from typing import Any, Awaitable, Callable, Optional, cast
 
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import ErrorEvent, TelegramObject
+from aiogram.types import CallbackQuery, ErrorEvent, TelegramObject
 from aiogram.types import User as AiogramUser
 from aiogram.utils.formatting import Text
 from aiogram_dialog.api.exceptions import (
@@ -76,6 +76,13 @@ class ErrorMiddleware(EventTypedMiddleware):
         else:
             user = None
             reply_markup = None
+
+        # Answer callback query to remove "loading" indicator from button
+        if error_event.update.callback_query:
+            try:
+                await error_event.update.callback_query.answer()
+            except Exception:
+                pass
 
         await notification_service.error_notify(
             error_id=user.telegram_id if user else error_event.update.update_id,
