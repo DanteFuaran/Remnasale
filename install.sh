@@ -2218,8 +2218,11 @@ NGINXBLOCK
     fi
 
     # ── Перезапускаем nginx (без затрагивания остальных сервисов remnawave) ──
-    cd "$remnawave_dir"
-    docker compose up -d --force-recreate remnawave-nginx >/dev/null 2>&1 || true
+    (
+        cd "$remnawave_dir"
+        docker compose up -d --force-recreate remnawave-nginx >/dev/null 2>&1 || true
+    ) &
+    show_spinner "Перезапуск Nginx"
 }
 
 # Вспомогательная функция: определить домен сертификата
@@ -2624,14 +2627,11 @@ if [ "$REVERSE_PROXY" = "caddy" ]; then
   ) &
   show_spinner "Настройка и перезапуск Caddy"
 elif [ "$REVERSE_PROXY" = "nginx" ]; then
-  (
-    configure_nginx "$APP_DOMAIN"
-    # Add web domain to Nginx if different from bot domain
-    if [ -n "$APP_WEB_DOMAIN" ] && [ "$APP_WEB_DOMAIN" != "$APP_DOMAIN" ]; then
-        configure_nginx "$APP_WEB_DOMAIN"
-    fi
-  ) &
-  show_spinner "Настройка Nginx"
+  configure_nginx "$APP_DOMAIN"
+  # Add web domain to Nginx if different from bot domain
+  if [ -n "$APP_WEB_DOMAIN" ] && [ "$APP_WEB_DOMAIN" != "$APP_DOMAIN" ]; then
+      configure_nginx "$APP_WEB_DOMAIN"
+  fi
 fi
 
 # 7. Запуск контейнеров и ожидание запуска бота
