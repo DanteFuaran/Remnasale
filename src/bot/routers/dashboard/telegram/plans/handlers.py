@@ -878,7 +878,15 @@ async def on_squads(
             f"external={plan.external_squad}"
         )
     
-    result = await remnawave.internal_squads.get_internal_squads()
+    try:
+        result = await remnawave.internal_squads.get_internal_squads()
+    except Exception as e:
+        logger.warning(f"{log(user)} Failed to get squads from Remnawave: {e}")
+        await callback.answer(
+            "❌ Панель Remnawave недоступна. Проверьте, что панель запущена и работает.",
+            show_alert=True,
+        )
+        return
 
     if not result.internal_squads:
         await notification_service.notify_user(

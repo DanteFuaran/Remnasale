@@ -199,8 +199,6 @@ class SubscriptionService(BaseService):
             and plan_a.traffic_limit == plan_b.traffic_limit
             and plan_a.device_limit == plan_b.device_limit
             and plan_a.traffic_limit_strategy == plan_b.traffic_limit_strategy
-            and sorted(plan_a.internal_squads) == sorted(plan_b.internal_squads)
-            and plan_a.external_squad == plan_b.external_squad
         )
 
     @staticmethod
