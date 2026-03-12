@@ -1118,13 +1118,16 @@ BOT_TOKEN=$(grep '^BACKUP_BOT_TOKEN=' "$CONFIG" | cut -d= -f2-)
 CHAT_ID=$(grep '^BACKUP_CHAT_ID=' "$CONFIG" | cut -d= -f2-)
 [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ] && exit 1
 
+DB_USER=$(grep '^DATABASE_USER=' "$CONFIG" | cut -d= -f2-)
+[ -z "$DB_USER" ] && DB_USER="postgres"
+
 BACKUP_DIR="/opt/remnasale/backups"
 mkdir -p "$BACKUP_DIR"
 TIMESTAMP=$(date +%Y-%m-%d_%H-%M)
 FINAL_FILE="${BACKUP_DIR}/Remnasale_${TIMESTAMP}.sql.gz"
 
 # Дамп БД
-docker exec remnasale-db pg_dumpall -c -U postgres 2>/dev/null | gzip -9 > "$FINAL_FILE"
+docker exec remnasale-db pg_dumpall -c -U "$DB_USER" 2>/dev/null | gzip -9 > "$FINAL_FILE"
 if [ ! -s "$FINAL_FILE" ]; then
     rm -f "$FINAL_FILE"
     exit 1

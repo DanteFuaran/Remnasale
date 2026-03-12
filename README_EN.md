@@ -145,13 +145,11 @@ Flexible plan management directly from the bot without restart:
 
 **User notifications (automatic):**
 
-| Event | Description |
-|-------|-------------|
-| ⏰ Subscription expiring | 3, 2 and 1 day before expiry |
-| ❌ Subscription expired | At expiry and 1 day after |
-| 🌐 Traffic exhausted | When traffic limit is exceeded |
-| 🎁 Referral attached | When a new referral registers |
-| 💰 Reward received | When a referral reward is credited |
+- ⏰ **Subscription expiring** — 3, 2 and 1 day before expiry
+- ❌ **Subscription expired** — At expiry and 1 day after
+- 🌐 **Traffic exhausted** — When traffic limit is exceeded
+- 🎁 **Referral attached** — When a new referral registers
+- 💰 **Reward received** — When a referral reward is credited
 
 **System notifications (to admin):**
 
@@ -177,11 +175,9 @@ New registrations, purchases, promo activations, device change (HWID), node stat
 
 <br>
 
-| Mode | Description |
-|------|-------------|
-| 🌍 **Public** | Registration and purchases open to everyone |
-| ✉️ **Invite only** | Only users with a referral link |
-| 🔒 **Closed** | All actions forbidden |
+- 🌍 **Public** — Registration and purchases open to everyone
+- ✉️ **Invite only** — Only users with a referral link
+- 🔒 **Closed** — All actions forbidden
 
 Independent control of **registration** and **purchases**.  
 Additional conditions: mandatory rules acceptance, mandatory channel subscription.
@@ -193,12 +189,10 @@ Additional conditions: mandatory rules acceptance, mandatory channel subscriptio
 
 <br>
 
-| Language | |
-|----------|-|
-| 🇷🇺 Russian | ✅ |
-| 🇺🇦 Ukrainian | ✅ |
-| 🇬🇧 English | ✅ |
-| 🇩🇪 German | ✅ |
+- 🇷🇺 **Russian**
+- 🇺🇦 **Ukrainian**
+- 🇬🇧 **English**
+- 🇩🇪 **German**
 
 - Auto-detect from user's Telegram language
 - Option to lock a single language for all users
@@ -289,20 +283,18 @@ Additional conditions: mandatory rules acceptance, mandatory channel subscriptio
 rs   # or: remnasale
 ```
 
-| Action | Description |
-|--------|-------------|
-| 🔄 Update | Check and install updates from GitHub |
-| ℹ️ View logs | Archived container logs |
-| 📊 Live logs | Real-time output (Ctrl+C to exit) |
-| 🔃 Restart bot | Restart Docker containers |
-| 🔃 Restart with logs | Restart + live log output |
-| ⬆️ Start bot | Start stopped bot |
-| ⬇️ Stop bot | Stop all containers |
-| 💾 Database | Save/restore DB, auto-backup to Telegram |
-| 🔄 Reinstall | Full reinstall preserving data |
-| ⚙️ Edit settings | Edit `.env` configuration |
-| 🧹 Clear data | Reset bot data |
-| 🗑️ Remove bot | Full removal |
+- 🔄 **Update** — Check and install updates from GitHub
+- ℹ️ **View logs** — Archived container logs
+- 📊 **Live logs** — Real-time output (Ctrl+C to exit)
+- 🔃 **Restart bot** — Restart Docker containers
+- 🔃 **Restart with logs** — Restart + live log output
+- ⬆️ **Start bot** — Start stopped bot
+- ⬇️ **Stop bot** — Stop all containers
+- 💾 **Database** — Save/restore DB, auto-backup to Telegram
+- 🔄 **Reinstall** — Full reinstall preserving data
+- ⚙️ **Edit settings** — Edit `.env` configuration
+- 🧹 **Clear data** — Reset bot data
+- 🗑️ **Remove bot** — Full removal
 
 </details>
 
@@ -317,14 +309,12 @@ rs   # or: remnasale
 
 <br>
 
-| Component | Requirements |
-|-----------|--------------|
-| **OS** | Ubuntu 22.04 / 24.04, Debian 11 / 12 |
-| **RAM** | from 1 GB (2 GB recommended) |
-| **Domain** | A-record pointing to server IP |
-| **Port** | 443 (HTTPS) — port 80 is opened automatically only during certificate issuance/renewal |
-| **Remnawave** | Version 2.5.24+, admin API token |
-| **Telegram Bot** | Token from @BotFather |
+- 🖥 **OS** — Ubuntu 22.04 / 24.04, Debian 11 / 12
+- 💾 **RAM** — from 1 GB (2 GB recommended)
+- 🌐 **Domain** — A-record pointing to server IP
+- 🔒 **Port** — 443 (HTTPS) — port 80 is opened automatically only during certificate issuance/renewal
+- 📡 **Remnawave** — Version 2.5.24+, admin API token
+- 🤖 **Telegram Bot** — Token from @BotFather
 
 </details>
 
@@ -339,11 +329,9 @@ rs   # or: remnasale
 
 If the project has been useful, you can support development:
 
-| Method | Details |
-|--------|---------|
-| **USDT (TRC-20)** | `THqJQsgbWY7Tw1BxdLA6SQAkBGVmMhzeLZ` |
-| **BTC (BEP-20)** | `0x657685922d7a9c50e3e90cae3ba9905985349fbb` |
-| **YooMoney** | `4100118836481809` |
+- 💵 **USDT (TRC-20)** — `THqJQsgbWY7Tw1BxdLA6SQAkBGVmMhzeLZ`
+- 🪙 **BTC (BEP-20)** — `0x657685922d7a9c50e3e90cae3ba9905985349fbb`
+- 💳 **YooMoney** — `4100118836481809`
 
 ❤️ Thank you for your support!
 
