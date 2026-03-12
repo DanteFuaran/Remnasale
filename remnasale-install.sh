@@ -2709,7 +2709,12 @@ NGINXBLOCK
         cd "$remnawave_dir"
         docker compose up -d --force-recreate remnawave-nginx >/dev/null 2>&1 || true
     ) &
-    show_spinner "Перезапуск Nginx"
+    if [ "${_NGINX_RESTARTED:-}" != "1" ]; then
+        _NGINX_RESTARTED=1
+        show_spinner "Перезапуск Nginx"
+    else
+        wait
+    fi
 }
 
 # Вспомогательная функция: определить домен сертификата
@@ -2946,9 +2951,13 @@ fi
 
 # 6. Определение реверс-прокси (уже определено до сбора данных)
 if [ "$REVERSE_PROXY" = "caddy" ]; then
+    echo
     print_success "Обнаружен реверс прокси Caddy"
+    echo
 elif [ "$REVERSE_PROXY" = "nginx" ]; then
+    echo
     print_success "Обнаружен реверс прокси Nginx"
+    echo
 else
     print_success "Реверс-прокси не обнаружен"
 fi
@@ -3079,14 +3088,10 @@ show_spinner "Инициализация конфигурации"
 ) &
 show_spinner "Синхронизация с Remnawave"
 
-# 3. Создание структуры папок (в фоне со спинером)
+# 3. Подготовка файлов: создание структуры папок + очистка старых томов + сборка Docker образа
 (
   mkdir -p "$PROJECT_DIR"/{assets,backups,logs}
-) &
-show_spinner "Создание структуры папок"
 
-# 4. Подготовка файлов: очистка старых томов + сборка Docker образа
-(
   # Останавливаем контейнеры и удаляем том БД для чистой инициализации
   cd "$PROJECT_DIR"
   docker compose down >/dev/null 2>&1 || true
@@ -3123,6 +3128,7 @@ elif [ "$REVERSE_PROXY" = "nginx" ]; then
       configure_nginx "$APP_WEB_DOMAIN"
   fi
 fi
+echo
 
 # 7. Запуск контейнеров и ожидание запуска бота
 cd "$PROJECT_DIR"
