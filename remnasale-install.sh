@@ -917,7 +917,7 @@ db_backup() {
         if [ -n "$mn_token" ] && [ -n "$mn_chat" ]; then
             local mn_caption
             mn_caption="📦 Приложение: Remnasale
-📁 Дамп БД
+📁 Дамп базы данных
 📏 Размер: ${mn_size}
 📅 ${mn_date} МСК
 
@@ -1140,8 +1140,8 @@ fi
 
 SIZE=$(du -h "$FINAL_FILE" | awk '{print $1}')
 DATE=$(date '+%d.%m.%Y %H:%M')
-CAPTION="� Приложение: Remnasale
-📁 Дамп БД
+CAPTION="📦 Приложение: Remnasale
+📁 Дамп базы данных
 📏 Размер: ${SIZE}
 📅 ${DATE} МСК
 
