@@ -32,22 +32,24 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 <details>
 <summary>Show details</summary>
 
+<br>
+
 <details>
 <summary>💳 Payment Gateways</summary>
 
+<br>
+
 The bot supports **9 payment methods**, multiple can be active simultaneously:
 
-| Gateway | Description |
-|---------|-------------|
-| ⭐ **Telegram Stars** | Native Telegram payments |
-| 💳 **YooKassa** | Bank cards, SBP, e-wallets |
-| 💳 **YooMoney** | YooMoney e-wallet |
-| 💳 **Lava** | Russian payment gateway |
-| 💳 **Platega** | Russian payment gateway |
-| 💳 **Robokassa** | Multi-channel acquiring |
-| 🔐 **Cryptomus** | Cryptocurrency payments |
-| 💎 **Heleket** | International crypto payments |
-| 💰 **Cryptopay** | Crypto acquiring |
+- ⭐ **Telegram Stars** — Native Telegram payments
+- 💳 **YooKassa** — Bank cards, SBP, e-wallets
+- 💳 **YooMoney** — YooMoney e-wallet
+- 💳 **Lava** — Russian payment gateway
+- 💳 **Platega** — Russian payment gateway
+- 💳 **Robokassa** — Multi-channel acquiring
+- 🔐 **Cryptomus** — Cryptocurrency payments
+- 💎 **Heleket** — International crypto payments
+- 💰 **Cryptopay** — Crypto acquiring
 
 In addition to external gateways, an **internal balance** system is supported — top-up, transfers between users, cashback.
 
@@ -55,6 +57,8 @@ In addition to external gateways, an **internal balance** system is supported �
 
 <details>
 <summary>📦 Subscription Plans</summary>
+
+<br>
 
 Flexible plan management directly from the bot without restart:
 
@@ -71,6 +75,8 @@ Flexible plan management directly from the bot without restart:
 <details>
 <summary>🎁 Free Trial</summary>
 
+<br>
+
 - Free trial access without a payment method
 - Dedicated trial plan
 - Referral trial subscription (invite-only)
@@ -80,6 +86,8 @@ Flexible plan management directly from the bot without restart:
 
 <details>
 <summary>📱 Extra Devices</summary>
+
+<br>
 
 - Sell additional device slots
 - **3 billing modes:** one-time / monthly / until subscription ends
@@ -92,6 +100,8 @@ Flexible plan management directly from the bot without restart:
 <details>
 <summary>🎟 Promo Codes</summary>
 
+<br>
+
 - **Percentage and fixed** discounts
 - Activation limit and expiry date
 - Bind to specific users or plans
@@ -102,6 +112,8 @@ Flexible plan management directly from the bot without restart:
 
 <details>
 <summary>👥 Referral System</summary>
+
+<br>
 
 - **2 referral levels**
 - Reward type: money or extra days
@@ -116,6 +128,8 @@ Flexible plan management directly from the bot without restart:
 <details>
 <summary>💰 Balance & Transfers</summary>
 
+<br>
+
 - Top-up via any connected payment gateway
 - Transfers between users with configurable commission
 - **2 balance modes:** separate (main + bonus) / unified
@@ -126,6 +140,8 @@ Flexible plan management directly from the bot without restart:
 
 <details>
 <summary>🔔 Notifications</summary>
+
+<br>
 
 **User notifications (automatic):**
 
@@ -146,6 +162,8 @@ New registrations, purchases, promo activations, device change (HWID), node stat
 <details>
 <summary>📢 Broadcasts</summary>
 
+<br>
+
 - Send by segment: **all / by plan / subscribed / unsubscribed / expired / trial**
 - Text, photo, video, document support
 - Inline buttons in broadcasts
@@ -156,6 +174,8 @@ New registrations, purchases, promo activations, device change (HWID), node stat
 
 <details>
 <summary>🔓 Access Modes</summary>
+
+<br>
 
 | Mode | Description |
 |------|-------------|
@@ -170,6 +190,8 @@ Additional conditions: mandatory rules acceptance, mandatory channel subscriptio
 
 <details>
 <summary>🌍 Multilanguage</summary>
+
+<br>
 
 | Language | |
 |----------|-|
@@ -187,6 +209,8 @@ Additional conditions: mandatory rules acceptance, mandatory channel subscriptio
 <details>
 <summary>📡 Remnawave Integration</summary>
 
+<br>
+
 - Real-time user and subscription sync via webhook
 - Create, extend, change plans directly in Remnawave Panel
 - Auto-update plan name when changed in the panel
@@ -198,6 +222,8 @@ Additional conditions: mandatory rules acceptance, mandatory channel subscriptio
 
 <details>
 <summary>👨‍💼 Dashboard (Admin Panel)</summary>
+
+<br>
 
 #### 👥 Users
 - Search by ID, username, name
@@ -257,6 +283,8 @@ Additional conditions: mandatory rules acceptance, mandatory channel subscriptio
 <details>
 <summary>🧰 Server Control Panel (`rs`)</summary>
 
+<br>
+
 ```bash
 rs   # or: remnasale
 ```
@@ -287,6 +315,8 @@ rs   # or: remnasale
 <details>
 <summary>Show details</summary>
 
+<br>
+
 | Component | Requirements |
 |-----------|--------------|
 | **OS** | Ubuntu 22.04 / 24.04, Debian 11 / 12 |
@@ -304,6 +334,8 @@ rs   # or: remnasale
 
 <details>
 <summary>Show details</summary>
+
+<br>
 
 If the project has been useful, you can support development:
 
@@ -323,6 +355,8 @@ If the project has been useful, you can support development:
 
 <details>
 <summary>Show details</summary>
+
+<br>
 
 ### Make sure that:
 

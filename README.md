@@ -32,21 +32,24 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 <details>
 <summary>Показать подробности</summary>
 
+<br>
+
+<details>
 <summary>💳 Платёжные системы</summary>
+
+<br>
 
 Бот поддерживает **9 способов оплаты**, задействовать можно несколько одновременно:
 
-| Шлюз | Описание |
-|------|----------|
-| ⭐ **Telegram Stars** | Встроенная оплата через Telegram |
-| 💳 **ЮKassa** | Банковские карты, СБП, электронные кошельки |
-| 💳 **ЮMoney** | Электронный кошелёк ЮMoney |
-| 💳 **Lava** | Российский платёжный шлюз |
-| 💳 **Platega** | Российский платёжный шлюз |
-| 💳 **Robokassa** | Многоканальный эквайринг |
-| 🔐 **Cryptomus** | Криптовалютные платежи |
-| 💎 **Heleket** | Международные криптоплатежи |
-| 💰 **Cryptopay** | Криптовалютный эквайринг |
+- ⭐ **Telegram Stars** — Встроенная оплата через Telegram
+- 💳 **ЮKassa** — Банковские карты, СБП, электронные кошельки
+- 💳 **ЮMoney** — Электронный кошелёк ЮMoney
+- 💳 **Lava** — Российский платёжный шлюз
+- 💳 **Platega** — Российский платёжный шлюз
+- 💳 **Robokassa** — Многоканальный эквайринг
+- 🔐 **Cryptomus** — Криптовалютные платежи
+- 💎 **Heleket** — Международные криптоплатежи
+- 💰 **Cryptopay** — Криптовалютный эквайринг
 
 Помимо внешних шлюзов, поддерживается **внутренний баланс** — пополнение, переводы между пользователями, кешбек.
 
@@ -54,6 +57,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 
 <details>
 <summary>📦 Тарифные планы</summary>
+
+<br>
 
 Гибкая настройка любых тарифов прямо из бота без перезапуска:
 
@@ -70,6 +75,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 <details>
 <summary>🎁 Пробный период</summary>
 
+<br>
+
 - Бесплатный пробный доступ без привязки карты
 - Отдельный тариф для пробника
 - Реферальная пробная подписка (по приглашению)
@@ -79,6 +86,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 
 <details>
 <summary>📱 Дополнительные устройства</summary>
+
+<br>
 
 - Продажа дополнительных слотов устройств
 - **3 режима оплаты:** единоразово / ежемесячно / до конца подписки
@@ -91,6 +100,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 <details>
 <summary>🎟 Промокоды</summary>
 
+<br>
+
 - Скидки **процентные и фиксированные**
 - Ограничение количества активаций и срок действия
 - Привязка к конкретным пользователям или тарифам
@@ -101,6 +112,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 
 <details>
 <summary>👥 Реферальная система</summary>
+
+<br>
 
 - **2 уровня рефералов**
 - Тип награды: деньги или дополнительные дни
@@ -115,6 +128,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 <details>
 <summary>💰 Баланс и переводы</summary>
 
+<br>
+
 - Пополнение баланса через любые подключённые шлюзы
 - Переводы между пользователями с настраиваемой комиссией
 - **2 режима баланса:** раздельный (основной + бонусный) / объединённый
@@ -125,6 +140,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 
 <details>
 <summary>🔔 Уведомления</summary>
+
+<br>
 
 **Пользовательские (автоматически):**
 
@@ -145,6 +162,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 <details>
 <summary>📢 Рассылки</summary>
 
+<br>
+
 - Отправка по сегментам: **все / по плану / с подпиской / без подписки / просроченным / с пробником**
 - Поддержка текста, фото, видео, документов
 - Кнопки inline в рассылке
@@ -155,6 +174,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 
 <details>
 <summary>🔓 Режим доступа</summary>
+
+<br>
 
 | Режим | Описание |
 |-------|----------|
@@ -169,6 +190,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 
 <details>
 <summary>🌍 Мультиязычность</summary>
+
+<br>
 
 | Язык | |
 |------|-|
@@ -186,6 +209,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 <details>
 <summary>📡 Интеграция с Remnawave</summary>
 
+<br>
+
 - Синхронизация пользователей и подписок через webhook в реальном времени
 - Создание, продление, смена тарифа напрямую в панели Remnawave
 - Автообновление имени тарифа при изменении в панели
@@ -197,6 +222,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 
 <details>
 <summary>👨‍💼 Dashboard (панель администратора)</summary>
+
+<br>
 
 #### 👥 Пользователи
 - Поиск по ID, username, имени
@@ -256,6 +283,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 <details>
 <summary>🧰 Панель управления сервером (`rs`)</summary>
 
+<br>
+
 ```bash
 rs   # или: remnasale
 ```
@@ -286,6 +315,8 @@ rs   # или: remnasale
 <details>
 <summary>Показать подробности</summary>
 
+<br>
+
 | Компонент | Требования |
 |-----------|------------|
 | **ОС** | Ubuntu 22.04 / 24.04, Debian 11 / 12 |
@@ -303,6 +334,8 @@ rs   # или: remnasale
 
 <details>
 <summary>Показать подробности</summary>
+
+<br>
 
 Если проект оказался полезен, вы можете поддержать разработку:
 
@@ -322,6 +355,8 @@ rs   # или: remnasale
 
 <details>
 <summary>Показать подробности</summary>
+
+<br>
 
 ### Проверьте что:
 
