@@ -708,13 +708,13 @@ restart_script() {
     fi
 
     # Для установки (--install) нужно клонировать репозиторий,
-    # т.к. системная копия содержит только install.sh без исходников
+    # т.к. системная копия содержит только remnasale-install.sh без исходников
     if [ "$extra_arg" = "--install" ]; then
         CLONE_DIR=$(mktemp -d)
         if git clone -b "$REPO_BRANCH" --depth 1 "$REPO_URL" "$CLONE_DIR" >/dev/null 2>&1; then
-            chmod +x "$CLONE_DIR/install.sh"
+            chmod +x "$CLONE_DIR/remnasale-install.sh"
             cd "$CLONE_DIR"
-            exec "$CLONE_DIR/install.sh" --install "$CLONE_DIR" "${INSTALL_MODE:-dev}"
+            exec "$CLONE_DIR/remnasale-install.sh" --install "$CLONE_DIR" "${INSTALL_MODE:-dev}"
         else
             echo -e "${RED}❌ Ошибка при клонировании репозитория${NC}"
             rm -rf "$CLONE_DIR" 2>/dev/null || true
@@ -723,7 +723,7 @@ restart_script() {
     fi
 
     # Для остальных случаев — запускаем из системной папки если доступна, иначе $0
-    local _target="/usr/local/lib/remnasale/install.sh"
+    local _target="/usr/local/lib/remnasale/remnasale-install.sh"
     if [ ! -f "$_target" ]; then
         _target="$0"
     fi
@@ -787,11 +787,11 @@ show_full_menu() {
         (  
             sudo tee /usr/local/bin/remnasale > /dev/null << 'EOF'
 #!/bin/bash
-# Запускаем install.sh из системной папки
-if [ -f "/usr/local/lib/remnasale/install.sh" ]; then
-    exec /usr/local/lib/remnasale/install.sh
+# Запускаем remnasale-install.sh из системной папки
+if [ -f "/usr/local/lib/remnasale/remnasale-install.sh" ]; then
+    exec /usr/local/lib/remnasale/remnasale-install.sh
 else
-    echo "❌ install.sh не найден. Переустановите бота."
+    echo "❌ remnasale-install.sh не найден. Переустановите бота."
     exit 1
 fi
 EOF
@@ -823,6 +823,8 @@ EOF
             "⬆️   Включить бота" \
             "⬇️   Выключить бота" \
             "──────────────────────────────────────" \
+            "�  Автобекап" \
+            "──────────────────────────────────────" \
             "🔄  Переустановить" \
             "⚙️   Изменить настройки" \
             "🧹  Очистить данные" \
@@ -839,12 +841,260 @@ EOF
             5)  manage_restart_bot_with_logs ;;
             6)  manage_start_bot ;;
             7)  manage_stop_bot ;;
-            9)  manage_reinstall_bot ;;
-            10) manage_change_settings ;;
-            11) manage_cleanup_database ;;
-            12) manage_uninstall_bot ;;
-            14) clear; exit 0 ;;
+            9)  manage_autobackup ;;
+            11) manage_reinstall_bot ;;
+            12) manage_change_settings ;;
+            13) manage_cleanup_database ;;
+            14) manage_uninstall_bot ;;
+            16) clear; exit 0 ;;
             255) clear; exit 0 ;;
+        esac
+    done
+}
+
+# ═══════════════════════════════════════════════
+# АВТОБЕКАП
+# ═══════════════════════════════════════════════
+
+AUTOBACKUP_SCRIPT="/usr/local/lib/remnasale/autobackup.sh"
+AUTOBACKUP_CONFIG="/opt/remnasale/.autobackup"
+
+# Отправка файла в Telegram
+_send_backup_to_telegram() {
+    local token="$1"
+    local chat_id="$2"
+    local file_path="$3"
+    local caption="${4:-}"
+    curl -s -F "chat_id=$chat_id" \
+         -F "document=@$file_path" \
+         -F "caption=$caption" \
+         "https://api.telegram.org/bot${token}/sendDocument" >/dev/null 2>&1
+}
+
+# Создание скрипта автобекапа
+_create_autobackup_script() {
+    local bot_token="$1"
+    local chat_id="$2"
+    sudo mkdir -p "$(dirname "$AUTOBACKUP_SCRIPT")" 2>/dev/null || true
+    cat > "$AUTOBACKUP_SCRIPT" << 'BACKUP_SCRIPT'
+#!/bin/bash
+# Remnasale Auto-Backup Script
+set -euo pipefail
+
+CONFIG="/opt/remnasale/.autobackup"
+[ -f "$CONFIG" ] || exit 0
+BOT_TOKEN=$(grep '^bot_token:' "$CONFIG" | cut -d: -f2- | tr -d ' ')
+CHAT_ID=$(grep '^chat_id:' "$CONFIG" | cut -d: -f2- | tr -d ' ')
+[ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ] && exit 1
+
+BACKUP_DIR="/opt/remnasale/backups"
+mkdir -p "$BACKUP_DIR"
+TIMESTAMP=$(date +%d-%m-%y_%H-%M)
+BACKUP_FILE="${BACKUP_DIR}/auto_${TIMESTAMP}.sql.gz"
+
+# Дамп БД через docker
+docker exec remnasale-db pg_dump -U postgres -d postgres 2>/dev/null | gzip > "$BACKUP_FILE"
+
+if [ -s "$BACKUP_FILE" ]; then
+    # Отправка в Telegram
+    CAPTION="💾 Автобекап Remnasale
+📅 $(date '+%d.%m.%Y %H:%M') MSK"
+    curl -s -F "chat_id=$CHAT_ID" \
+         -F "document=@$BACKUP_FILE" \
+         -F "caption=$CAPTION" \
+         "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" >/dev/null 2>&1
+    # Удаляем автобекапы старше 7 дней
+    find "$BACKUP_DIR" -name "auto_*.sql.gz" -mtime +7 -delete 2>/dev/null || true
+fi
+BACKUP_SCRIPT
+    chmod +x "$AUTOBACKUP_SCRIPT"
+}
+
+# Получение cron-выражения по частоте
+_get_cron_schedule() {
+    local freq="$1"
+    case "$freq" in
+        hourly)  echo "0 * * * *" ;;
+        daily)   echo "0 21 * * *" ;;   # 00:00 MSK = 21:00 UTC
+        weekly)  echo "0 21 * * 0" ;;   # воскресенье 00:00 MSK
+        monthly) echo "0 21 1 * *" ;;   # 1-е число 00:00 MSK
+    esac
+}
+
+# Проверка статуса автобекапа
+_autobackup_is_active() {
+    crontab -l 2>/dev/null | grep -q "$AUTOBACKUP_SCRIPT"
+}
+
+# Получение текущей частоты
+_autobackup_get_frequency() {
+    if ! _autobackup_is_active; then
+        echo ""
+        return
+    fi
+    local cron_line
+    cron_line=$(crontab -l 2>/dev/null | grep "$AUTOBACKUP_SCRIPT")
+    case "$cron_line" in
+        "0 * * * *"*)    echo "Каждый час" ;;
+        "0 21 * * *"*)   echo "Каждый день (00:00 МСК)" ;;
+        "0 21 * * 0"*)   echo "Каждую неделю (Вс 00:00 МСК)" ;;
+        "0 21 1 * *"*)   echo "Каждый месяц (1-е число, 00:00 МСК)" ;;
+        *)               echo "Пользовательское расписание" ;;
+    esac
+}
+
+manage_autobackup() {
+    while true; do
+        local status_label
+        if _autobackup_is_active; then
+            local freq
+            freq=$(_autobackup_get_frequency)
+            status_label="📊 Статус: ${GREEN}Активен${NC} (${freq})"
+        else
+            status_label="📊 Статус: ${RED}Не настроен${NC}"
+        fi
+
+        clear
+        echo -e "${BLUE}══════════════════════════════════════${NC}"
+        echo -e "${GREEN}       💾 АВТОБЕКАП REMNASALE${NC}"
+        echo -e "${BLUE}══════════════════════════════════════${NC}"
+        echo
+        echo -e "  $status_label"
+        echo
+
+        local menu_items=()
+        if _autobackup_is_active; then
+            menu_items+=("⚙️   Изменить настройки")
+            menu_items+=("⛔  Остановить автобекап")
+        else
+            menu_items+=("⚙️   Настройка автобекапа")
+        fi
+        menu_items+=("──────────────────────────────────────")
+        menu_items+=("⬅️   Назад")
+
+        show_arrow_menu "💾 АВТОБЕКАП" "${menu_items[@]}"
+        local choice=$?
+
+        case $choice in
+            0)
+                # Настройка / Изменить
+                clear
+                echo -e "${BLUE}══════════════════════════════════════${NC}"
+                echo -e "${GREEN}   ⚙️  НАСТРОЙКА АВТОБЕКАПА${NC}"
+                echo -e "${BLUE}══════════════════════════════════════${NC}"
+                echo
+
+                # Токен бота
+                local backup_bot_token=""
+                if [ -f "$AUTOBACKUP_CONFIG" ]; then
+                    backup_bot_token=$(grep '^bot_token:' "$AUTOBACKUP_CONFIG" 2>/dev/null | cut -d: -f2- | tr -d ' ')
+                fi
+                local current_hint=""
+                [ -n "$backup_bot_token" ] && current_hint=" (Enter = оставить текущий)"
+                tput cnorm 2>/dev/null || true
+                reading_inline "Токен бота для бекапов${current_hint}:" new_backup_token
+                if [ -z "$new_backup_token" ] && [ -n "$backup_bot_token" ]; then
+                    new_backup_token="$backup_bot_token"
+                fi
+                if [ -z "$new_backup_token" ]; then
+                    print_error "Токен не может быть пустым"
+                    echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+                    read -p ""
+                    continue
+                fi
+
+                # Chat ID
+                local backup_chat_id=""
+                if [ -f "$AUTOBACKUP_CONFIG" ]; then
+                    backup_chat_id=$(grep '^chat_id:' "$AUTOBACKUP_CONFIG" 2>/dev/null | cut -d: -f2- | tr -d ' ')
+                fi
+                current_hint=""
+                [ -n "$backup_chat_id" ] && current_hint=" (Enter = оставить текущий)"
+                reading_inline "Telegram ID для получения бекапов${current_hint}:" new_chat_id
+                if [ -z "$new_chat_id" ] && [ -n "$backup_chat_id" ]; then
+                    new_chat_id="$backup_chat_id"
+                fi
+                if [ -z "$new_chat_id" ]; then
+                    print_error "ID не может быть пустым"
+                    echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+                    read -p ""
+                    continue
+                fi
+
+                # Частота
+                echo
+                show_arrow_menu "Частота бекапа" \
+                    "⏱️   Каждый час" \
+                    "📅  Каждый день (00:00 МСК)" \
+                    "📆  Каждую неделю (Вс 00:00 МСК)" \
+                    "🗓️   Каждый месяц (1-е число, 00:00 МСК)"
+                local freq_choice=$?
+
+                local frequency=""
+                case $freq_choice in
+                    0) frequency="hourly" ;;
+                    1) frequency="daily" ;;
+                    2) frequency="weekly" ;;
+                    3) frequency="monthly" ;;
+                    255) continue ;;
+                esac
+
+                # Сохраняем конфиг
+                cat > "$AUTOBACKUP_CONFIG" << EOF
+bot_token: $new_backup_token
+chat_id: $new_chat_id
+frequency: $frequency
+EOF
+
+                # Создаём скрипт бекапа
+                _create_autobackup_script "$new_backup_token" "$new_chat_id"
+
+                # Устанавливаем cron
+                local cron_schedule
+                cron_schedule=$(_get_cron_schedule "$frequency")
+                (crontab -l 2>/dev/null | grep -v "$AUTOBACKUP_SCRIPT"; echo "$cron_schedule $AUTOBACKUP_SCRIPT") | crontab -
+
+                clear
+                echo -e "${BLUE}══════════════════════════════════════${NC}"
+                echo -e "${GREEN}       💾 АВТОБЕКАП НАСТРОЕН${NC}"
+                echo -e "${BLUE}══════════════════════════════════════${NC}"
+                echo
+                echo -e "${GREEN}✅ Автобекап успешно настроен${NC}"
+                echo
+                local freq_label
+                case $frequency in
+                    hourly)  freq_label="Каждый час" ;;
+                    daily)   freq_label="Каждый день (00:00 МСК)" ;;
+                    weekly)  freq_label="Каждую неделю (Вс 00:00 МСК)" ;;
+                    monthly) freq_label="Каждый месяц (1-е число, 00:00 МСК)" ;;
+                esac
+                echo -e "  Частота: ${YELLOW}${freq_label}${NC}"
+                echo -e "  Получатель: ${YELLOW}${new_chat_id}${NC}"
+                echo
+                echo -e "${BLUE}══════════════════════════════════════${NC}"
+                echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+                read -p ""
+                ;;
+            1)
+                if _autobackup_is_active; then
+                    # Остановить автобекап
+                    (crontab -l 2>/dev/null | grep -v "$AUTOBACKUP_SCRIPT") | crontab -
+                    rm -f "$AUTOBACKUP_CONFIG" 2>/dev/null || true
+                    clear
+                    echo -e "${BLUE}══════════════════════════════════════${NC}"
+                    echo -e "${GREEN}       💾 АВТОБЕКАП${NC}"
+                    echo -e "${BLUE}══════════════════════════════════════${NC}"
+                    echo
+                    echo -e "${GREEN}✅ Автобекап остановлен${NC}"
+                    echo
+                    echo -e "${BLUE}══════════════════════════════════════${NC}"
+                    echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+                    read -p ""
+                else
+                    return
+                fi
+                ;;
+            *) return ;;
         esac
     done
 }
@@ -1011,14 +1261,14 @@ manage_update_bot() {
                     cp -f "version" "$PROJECT_DIR/version"
                 fi
                 
-                # Копируем install.sh в системную папку (не в корень бота)
+                # Копируем remnasale-install.sh в системную папку (не в корень бота)
                 sudo mkdir -p "$SYSTEM_INSTALL_DIR" 2>/dev/null || true
-                _src="$(realpath "install.sh" 2>/dev/null || echo "install.sh")"
-                _dst="$(realpath "$SYSTEM_INSTALL_DIR/install.sh" 2>/dev/null || echo "$SYSTEM_INSTALL_DIR/install.sh")"
+                _src="$(realpath "remnasale-install.sh" 2>/dev/null || echo "remnasale-install.sh")"
+                _dst="$(realpath "$SYSTEM_INSTALL_DIR/remnasale-install.sh" 2>/dev/null || echo "$SYSTEM_INSTALL_DIR/remnasale-install.sh")"
                 if [ "$_src" != "$_dst" ]; then
-                    sudo cp -f "install.sh" "$SYSTEM_INSTALL_DIR/install.sh" 2>/dev/null || true
+                    sudo cp -f "remnasale-install.sh" "$SYSTEM_INSTALL_DIR/remnasale-install.sh" 2>/dev/null || true
                 fi
-                sudo chmod +x "$SYSTEM_INSTALL_DIR/install.sh" 2>/dev/null || true
+                sudo chmod +x "$SYSTEM_INSTALL_DIR/remnasale-install.sh" 2>/dev/null || true
             } &
             show_spinner "Обновление конфигурации"
             
@@ -1848,9 +2098,9 @@ if [ "$1" != "--install" ]; then
             exit 1
         fi
         
-        chmod +x "$CLONE_DIR/install.sh"
+        chmod +x "$CLONE_DIR/remnasale-install.sh"
         cd "$CLONE_DIR"
-        exec "$CLONE_DIR/install.sh" --install "$CLONE_DIR" "$INSTALL_MODE"
+        exec "$CLONE_DIR/remnasale-install.sh" --install "$CLONE_DIR" "$INSTALL_MODE"
     fi
     
     # Создаем временную папку с уникальным именем и переклонируемся туда
@@ -1858,7 +2108,7 @@ if [ "$1" != "--install" ]; then
     trap "cd /opt 2>/dev/null || true; rm -rf '$CLONE_DIR' 2>/dev/null || true" EXIT
     git clone -b "$REPO_BRANCH" --depth 1 "$REPO_URL" "$CLONE_DIR" >/dev/null 2>&1
     cd "$CLONE_DIR"
-    exec "$CLONE_DIR/install.sh" --install "$CLONE_DIR" "$INSTALL_MODE"
+    exec "$CLONE_DIR/remnasale-install.sh" --install "$CLONE_DIR" "$INSTALL_MODE"
 else
     # Это повторный запуск из временной папки
     CLONE_DIR="$2"
@@ -1882,12 +2132,6 @@ fi
 find /tmp -maxdepth 1 -type d -name "tmp.*" -mmin +60 -exec rm -rf {} \; 2>/dev/null || true
 # Очистка старых директорий сборки Docker
 rm -rf /tmp/remnasale-build 2>/dev/null || true
-
-clear
-echo -e "${BLUE}══════════════════════════════════════${NC}"
-echo -e "${GREEN}       🚀 УСТАНОВКА REMNASALE${NC}"
-echo -e "${BLUE}══════════════════════════════════════${NC}"
-echo
 
 # ═══════════════════════════════════════════════
 # ФУНКЦИИ УСТАНОВКИ
@@ -2249,27 +2493,114 @@ extract_cert_domain() {
 }
 
 # ═══════════════════════════════════════════════
-# ПРОВЕРКИ ПРЕДУСЛОВИЙ И ПОДГОТОВКА
+# ПРОВЕРКИ ПРЕДУСЛОВИЙ
 # ═══════════════════════════════════════════════
 
-# 1. Проверка Docker и OpenSSL
-(
-  if ! command -v docker &> /dev/null; then
-      print_error "Docker не установлен!"
-      exit 1
-  fi
+# Быстрые проверки ДО сбора данных
+if ! command -v docker &> /dev/null; then
+    print_error "Docker не установлен!"
+    exit 1
+fi
+if ! command -v openssl &> /dev/null; then
+    print_error "OpenSSL не установлен!"
+    exit 1
+fi
 
-  if ! command -v openssl &> /dev/null; then
-      print_error "OpenSSL не установлен!"
-      exit 1
-  fi
-) &
-show_spinner "Проверка установленных компонентов"
+# Автоопределение реверс-прокси (до сбора данных — влияет на webhook)
+if [ -d "/opt/remnawave/caddy" ]; then
+    REVERSE_PROXY="caddy"
+elif [ -f "/opt/remnawave/nginx.conf" ]; then
+    REVERSE_PROXY="nginx"
+else
+    REVERSE_PROXY="none"
+fi
+
+# ═══════════════════════════════════════════════
+# СБОР ДАННЫХ ДЛЯ УСТАНОВКИ
+# ═══════════════════════════════════════════════
+
+clear
+echo -e "${BLUE}══════════════════════════════════════${NC}"
+echo -e "${GREEN}       🚀 УСТАНОВКА REMNASALE${NC}"
+echo -e "${BLUE}══════════════════════════════════════${NC}"
+echo
+echo -e "${DARKGRAY}Введите данные для установки бота${NC}"
+echo
+echo -e "${BLUE}──────────────────────────────────────${NC}"
+echo
+
+# APP_DOMAIN
+while true; do
+    printf '\033[s'  # сохраняем позицию курсора перед промптом
+    reading_inline "Введите домен бота (напр. bot.example.com):" APP_DOMAIN
+    if [ -z "$APP_DOMAIN" ]; then
+        print_error "Домен не может быть пустым!"
+        exit 1
+    fi
+    if check_domain "$APP_DOMAIN"; then
+        break
+    fi
+    echo
+    echo -e "${DARKGRAY}Нажмите Enter чтобы ввести другой домен, или Esc для выхода.${NC}"
+    key=""
+    while true; do
+        read -s -n 1 key
+        if [[ "$key" == $'\x1b' ]]; then
+            echo
+            exit 1
+        elif [[ "$key" == "" ]]; then
+            break
+        fi
+    done
+    printf '\033[u\033[J'  # возвращаемся к сохранённой позиции и очищаем всё ниже
+done
+
+# APP_WEB_DOMAIN
+reading_inline "Введите домен веб-сайта (Enter = пропустить, настроите позже):" APP_WEB_DOMAIN
+if [ -z "$APP_WEB_DOMAIN" ]; then
+    APP_WEB_DOMAIN=""
+fi
+
+# BOT_TOKEN
+reading_inline "Введите Токен телеграм бота:" BOT_TOKEN
+if [ -z "$BOT_TOKEN" ]; then
+    print_error "BOT_TOKEN не может быть пустым!"
+    exit 1
+fi
+
+# BOT_DEV_ID
+reading_inline "Введите телеграм ID разработчика:" BOT_DEV_ID
+if [ -z "$BOT_DEV_ID" ]; then
+    print_error "BOT_DEV_ID не может быть пустым!"
+    exit 1
+fi
+
+# BOT_SUPPORT_USERNAME
+reading_inline "Введите username группы поддержки (без @, Enter = ID разработчика):" BOT_SUPPORT_USERNAME
+if [ -z "$BOT_SUPPORT_USERNAME" ]; then
+    BOT_SUPPORT_USERNAME="$BOT_DEV_ID"
+fi
+
+# REMNAWAVE_TOKEN
+reading_inline "Введите API Токен Remnawave:" REMNAWAVE_TOKEN
+if [ -z "$REMNAWAVE_TOKEN" ]; then
+    print_error "REMNAWAVE_TOKEN не может быть пустым!"
+    exit 1
+fi
+
+# ═══════════════════════════════════════════════
+# ПРОЦЕСС УСТАНОВКИ
+# ═══════════════════════════════════════════════
+
+clear
+echo -e "${BLUE}══════════════════════════════════════${NC}"
+echo -e "${GREEN}       🚀 ПРОЦЕСС УСТАНОВКИ${NC}"
+echo -e "${BLUE}══════════════════════════════════════${NC}"
+echo
 
 # Отмечаем, что установка началась - теперь при ошибке нужно очищать
 INSTALL_STARTED=true
 
-# 1.5. Настройка системы: Docker log rotation
 (
   # Docker log rotation: создаём daemon.json если нет
   if [ ! -f /etc/docker/daemon.json ]; then
@@ -2341,14 +2672,14 @@ if [ "$COPY_FILES" = true ]; then
           cp "$SOURCE_DIR/version" "$PROJECT_DIR/version"
       fi
 
-      # Копируем install.sh в системную папку (не в корень бота)
+      # Копируем remnasale-install.sh в системную папку (не в корень бота)
       sudo mkdir -p "$SYSTEM_INSTALL_DIR"
-      _src="$(realpath "$SOURCE_DIR/install.sh" 2>/dev/null || echo "$SOURCE_DIR/install.sh")"
-      _dst="$(realpath "$SYSTEM_INSTALL_DIR/install.sh" 2>/dev/null || echo "$SYSTEM_INSTALL_DIR/install.sh")"
+      _src="$(realpath "$SOURCE_DIR/remnasale-install.sh" 2>/dev/null || echo "$SOURCE_DIR/remnasale-install.sh")"
+      _dst="$(realpath "$SYSTEM_INSTALL_DIR/remnasale-install.sh" 2>/dev/null || echo "$SYSTEM_INSTALL_DIR/remnasale-install.sh")"
       if [ "$_src" != "$_dst" ]; then
-          sudo cp "$SOURCE_DIR/install.sh" "$SYSTEM_INSTALL_DIR/install.sh"
+          sudo cp "$SOURCE_DIR/remnasale-install.sh" "$SYSTEM_INSTALL_DIR/remnasale-install.sh"
       fi
-      sudo chmod +x "$SYSTEM_INSTALL_DIR/install.sh"
+      sudo chmod +x "$SYSTEM_INSTALL_DIR/remnasale-install.sh"
     )
     wait  # Ждем завершения копирования без спиннера
 fi
@@ -2370,101 +2701,26 @@ else
     print_success "Конфигурация уже существует"
 fi
 
-# 6. Автоопределение реверс-прокси
-if [ -d "/opt/remnawave/caddy" ]; then
-  REVERSE_PROXY="caddy"
-  print_success "Обнаружен реверс прокси Caddy"
-  print_success "Применяем вариант установки с Caddy"
-elif [ -f "/opt/remnawave/nginx.conf" ]; then
-  REVERSE_PROXY="nginx"
-  print_success "Обнаружен реверс прокси Nginx"
-  print_success "Применяем вариант установки с Nginx"
+# 6. Определение реверс-прокси (уже определено до сбора данных)
+if [ "$REVERSE_PROXY" = "caddy" ]; then
+    print_success "Обнаружен реверс прокси Caddy"
+elif [ "$REVERSE_PROXY" = "nginx" ]; then
+    print_success "Обнаружен реверс прокси Nginx"
 else
-  REVERSE_PROXY="none"
-  print_success "Реверс-прокси не обнаружен"
-  print_success "Установка будет выполнена без настройки прокси"
+    print_success "Реверс-прокси не обнаружен"
 fi
 
-echo
-echo -e "${BLUE}══════════════════════════════════════${NC}"
-echo -e "${WHITE}    ⚙️  НАСТРОЙКА КОНФИГУРАЦИИ БОТА${NC}"
-echo -e "${BLUE}══════════════════════════════════════${NC}"
-echo
-
-# APP_DOMAIN
-while true; do
-    printf '\033[s'  # сохраняем позицию курсора перед промптом
-    reading_inline "Введите домен бота (напр. bot.example.com):" APP_DOMAIN
-    if [ -z "$APP_DOMAIN" ]; then
-        print_error "Домен не может быть пустым!"
-        exit 1
-    fi
-    if check_domain "$APP_DOMAIN"; then
-        break
-    fi
-    echo
-    echo -e "${DARKGRAY}Нажмите Enter чтобы ввести другой домен, или Esc для выхода.${NC}"
-    key=""
-    while true; do
-        read -s -n 1 key
-        if [[ "$key" == $'\x1b' ]]; then
-            echo
-            exit 1
-        elif [[ "$key" == "" ]]; then
-            break
-        fi
-    done
-    printf '\033[u\033[J'  # возвращаемся к сохранённой позиции и очищаем всё ниже
-done
-update_env_var "$ENV_FILE" "APP_DOMAIN" "$APP_DOMAIN"
-
-# Автоматически устанавливаем Mini App URL для Telegram WebApp
-update_env_var "$ENV_FILE" "BOT_MINI_APP" "https://${APP_DOMAIN}/web/miniapp"
-
-# APP_WEB_DOMAIN
-reading_inline "Введите домен веб-сайта (Enter = пропустить, настроите позже):" APP_WEB_DOMAIN
-if [ -z "$APP_WEB_DOMAIN" ]; then
-    APP_WEB_DOMAIN=""
-fi
-update_env_var "$ENV_FILE" "APP_WEB_DOMAIN" "$APP_WEB_DOMAIN"
-
-# BOT_TOKEN
-reading_inline "Введите Токен телеграм бота:" BOT_TOKEN
-if [ -z "$BOT_TOKEN" ]; then
-    print_error "BOT_TOKEN не может быть пустым!"
-    exit 1
-fi
-update_env_var "$ENV_FILE" "BOT_TOKEN" "$BOT_TOKEN"
-
-# BOT_DEV_ID
-reading_inline "Введите телеграм ID разработчика:" BOT_DEV_ID
-if [ -z "$BOT_DEV_ID" ]; then
-    print_error "BOT_DEV_ID не может быть пустым!"
-    exit 1
-fi
-update_env_var "$ENV_FILE" "BOT_DEV_ID" "$BOT_DEV_ID"
-
-# BOT_SUPPORT_USERNAME
-reading_inline "Введите username группы поддержки (без @, Enter = ID разработчика):" BOT_SUPPORT_USERNAME
-echo
-if [ -z "$BOT_SUPPORT_USERNAME" ]; then
-    BOT_SUPPORT_USERNAME="$BOT_DEV_ID"
-fi
-update_env_var "$ENV_FILE" "BOT_SUPPORT_USERNAME" "$BOT_SUPPORT_USERNAME"
-
-# REMNAWAVE_TOKEN
-reading_inline "Введите API Токен Remnawave:" REMNAWAVE_TOKEN
-if [ -z "$REMNAWAVE_TOKEN" ]; then
-    print_error "REMNAWAVE_TOKEN не может быть пустым!"
-    exit 1
-fi
-update_env_var "$ENV_FILE" "REMNAWAVE_TOKEN" "$REMNAWAVE_TOKEN"
-
-clear
-echo -e "${BLUE}══════════════════════════════════════${NC}"
-echo -e "${GREEN}       🚀 ПРОЦЕСС УСТАНОВКИ${NC}"
-echo -e "${BLUE}══════════════════════════════════════${NC}"
-echo
+# 7. Записываем собранные данные в .env
+(
+  update_env_var "$ENV_FILE" "APP_DOMAIN" "$APP_DOMAIN"
+  update_env_var "$ENV_FILE" "BOT_MINI_APP" "https://${APP_DOMAIN}/web/miniapp"
+  update_env_var "$ENV_FILE" "APP_WEB_DOMAIN" "$APP_WEB_DOMAIN"
+  update_env_var "$ENV_FILE" "BOT_TOKEN" "$BOT_TOKEN"
+  update_env_var "$ENV_FILE" "BOT_DEV_ID" "$BOT_DEV_ID"
+  update_env_var "$ENV_FILE" "BOT_SUPPORT_USERNAME" "$BOT_SUPPORT_USERNAME"
+  update_env_var "$ENV_FILE" "REMNAWAVE_TOKEN" "$REMNAWAVE_TOKEN"
+) &
+show_spinner "Сохранение конфигурации"
 
 # 1. СНАЧАЛА - Создание конфигурации (в фоне со спинером)
 (
@@ -2721,21 +2977,21 @@ INSTALL_COMPLETED=true
 # Создание глобальной команды remnasale
 (
     sudo mkdir -p /usr/local/lib/remnasale
-    # Копируем install.sh в системную папку (до удаления SOURCE_DIR)
-    _src="$(realpath "$SOURCE_DIR/install.sh" 2>/dev/null || echo "$SOURCE_DIR/install.sh")"
-    _dst="$(realpath "/usr/local/lib/remnasale/install.sh" 2>/dev/null || echo "/usr/local/lib/remnasale/install.sh")"
-    if [ "$_src" != "$_dst" ] && [ -f "$SOURCE_DIR/install.sh" ]; then
-        sudo cp "$SOURCE_DIR/install.sh" /usr/local/lib/remnasale/install.sh
+    # Копируем remnasale-install.sh в системную папку (до удаления SOURCE_DIR)
+    _src="$(realpath "$SOURCE_DIR/remnasale-install.sh" 2>/dev/null || echo "$SOURCE_DIR/remnasale-install.sh")"
+    _dst="$(realpath "/usr/local/lib/remnasale/remnasale-install.sh" 2>/dev/null || echo "/usr/local/lib/remnasale/remnasale-install.sh")"
+    if [ "$_src" != "$_dst" ] && [ -f "$SOURCE_DIR/remnasale-install.sh" ]; then
+        sudo cp "$SOURCE_DIR/remnasale-install.sh" /usr/local/lib/remnasale/remnasale-install.sh
     fi
-    sudo chmod +x /usr/local/lib/remnasale/install.sh
+    sudo chmod +x /usr/local/lib/remnasale/remnasale-install.sh
 
     sudo tee /usr/local/bin/remnasale > /dev/null << 'EOF'
 #!/bin/bash
-# Запускаем install.sh из системной папки
-if [ -f "/usr/local/lib/remnasale/install.sh" ]; then
-    exec /usr/local/lib/remnasale/install.sh
+# Запускаем remnasale-install.sh из системной папки
+if [ -f "/usr/local/lib/remnasale/remnasale-install.sh" ]; then
+    exec /usr/local/lib/remnasale/remnasale-install.sh
 else
-    echo "❌ install.sh не найден. Переустановите бота."
+    echo "❌ remnasale-install.sh не найден. Переустановите бота."
     exit 1
 fi
 EOF

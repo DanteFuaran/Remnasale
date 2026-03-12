@@ -8,7 +8,7 @@ ___
 
 ### ▶️ Полная установка одной командой
 ```bash
-cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasale/main/install-wrapper.sh)
+cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasale/main/remnasale-install.sh)
 ```
 
 ### 📝 Данные для настройки
