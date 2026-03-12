@@ -2328,6 +2328,8 @@ if [ "$1" != "--install" ]; then
     if [ "$1" = "--prod" ] || [ "$1" = "-p" ]; then
         INSTALL_MODE="prod"
     fi
+
+    echo -e '\033[1;34mПодготовка к запуску скрипта...\033[0m'
     
     # Проверяем что это не dev окружение (не должна быть .git папка в текущей директории)
     # Если это dev окружение - принудительно клонируем в temp
@@ -2954,7 +2956,7 @@ else
     print_success "Реверс-прокси не обнаружен"
 fi
 
-# 7. Записываем собранные данные в .env
+# 7. Записываем собранные данные и генерируем ключи — всё в одном шаге
 (
   update_env_var "$ENV_FILE" "APP_DOMAIN" "$APP_DOMAIN"
   update_env_var "$ENV_FILE" "BOT_MINI_APP" "https://${APP_DOMAIN}/web/miniapp"
@@ -2963,11 +2965,7 @@ fi
   update_env_var "$ENV_FILE" "BOT_DEV_ID" "$BOT_DEV_ID"
   update_env_var "$ENV_FILE" "BOT_SUPPORT_USERNAME" "$BOT_SUPPORT_USERNAME"
   update_env_var "$ENV_FILE" "REMNAWAVE_TOKEN" "$REMNAWAVE_TOKEN"
-) &
-show_spinner "Сохранение конфигурации"
 
-# 1. СНАЧАЛА - Создание конфигурации (в фоне со спинером)
-(
   # Автогенерация ключей безопасности
   if grep -q "^APP_CRYPT_KEY=$" "$ENV_FILE"; then
     APP_CRYPT_KEY=$(openssl rand -base64 32 | tr -d '\n')
@@ -3049,7 +3047,7 @@ show_spinner "Сохранение конфигурации"
     fi
   fi
 ) &
-show_spinner "Создание конфигурации"
+show_spinner "Инициализация конфигурации"
 
 # 2. Синхронизация webhook (в фоне со спинером)
 (
@@ -3090,19 +3088,14 @@ show_spinner "Синхронизация с Remnawave"
 ) &
 show_spinner "Создание структуры папок"
 
-# 4. Удаление старых томов БД для свежей установки (в фоне со спинером)
+# 4. Подготовка файлов: очистка старых томов + сборка Docker образа
 (
+  # Останавливаем контейнеры и удаляем том БД для чистой инициализации
   cd "$PROJECT_DIR"
-  # Останавливаем контейнеры если они есть
   docker compose down >/dev/null 2>&1 || true
-  # Удаляем том БД чтобы PostgreSQL переинициализировалась с правильными паролями
   docker volume rm remnasale-db-data >/dev/null 2>&1 || true
-) &
-show_spinner "Очистка старых данных БД"
 
-# 5. Сборка Docker образа из временной папки (в фоне со спинером)
-(
-  # Собираем образ из SOURCE_DIR (временная папка с исходниками)
+  # Собираем Docker образ из SOURCE_DIR (временная папка с исходниками)
   if [ "$COPY_FILES" = true ] && [ -d "$SOURCE_DIR" ]; then
     cd "$SOURCE_DIR"
     docker build -t remnasale:local \
@@ -3113,7 +3106,7 @@ show_spinner "Очистка старых данных БД"
       . >/dev/null 2>&1
   fi
 ) &
-show_spinner "Сборка Docker образа"
+show_spinner "Подготовка файлов"
 
 # 6. Настройка реверс-прокси ПЕРЕД запуском бота
 #    (бот при старте сразу проверяет webhook — nginx должен быть готов)
@@ -3136,9 +3129,7 @@ fi
 
 # 7. Запуск контейнеров и ожидание запуска бота
 cd "$PROJECT_DIR"
-docker compose up -d >/dev/null 2>&1
-
-echo
+docker compose up -d >/dev/null 2>&1 &
 show_spinner_until_log "remnasale" "Digital.*Freedom.*Core" "Запуск бота" 90 && BOT_START_RESULT=0 || BOT_START_RESULT=$?
 echo
 
