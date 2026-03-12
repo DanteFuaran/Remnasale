@@ -27,8 +27,10 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 
 ---
 
+## ✨ Возможности
+
 <details>
-<summary>✨ Возможности</summary>
+<summary>Показать подробности</summary>
 
 <details>
 <summary>💳 Платёжные системы</summary>
@@ -280,8 +282,10 @@ rs   # или: remnasale
 
 ---
 
+## 📋 Требования
+
 <details>
-<summary>📋 Требования</summary>
+<summary>Показать подробности</summary>
 
 | Компонент | Требования |
 |-----------|------------|
@@ -296,8 +300,10 @@ rs   # или: remnasale
 
 ---
 
+## 💰 Поддержать проект
+
 <details>
-<summary>💰 Поддержать проект</summary>
+<summary>Показать подробности</summary>
 
 Если проект оказался полезен, вы можете поддержать разработку:
 

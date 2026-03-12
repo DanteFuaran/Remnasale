@@ -27,8 +27,10 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 
 ---
 
+## ✨ Features
+
 <details>
-<summary>✨ Features</summary>
+<summary>Show details</summary>
 
 <details>
 <summary>💳 Payment Gateways</summary>
@@ -280,8 +282,10 @@ rs   # or: remnasale
 
 ---
 
+## 📋 Requirements
+
 <details>
-<summary>📋 Requirements</summary>
+<summary>Show details</summary>
 
 | Component | Requirements |
 |-----------|--------------|
@@ -296,8 +300,10 @@ rs   # or: remnasale
 
 ---
 
+## 💰 Support the Project
+
 <details>
-<summary>💰 Support the Project</summary>
+<summary>Show details</summary>
 
 If the project has been useful, you can support development:
 
