@@ -12,13 +12,13 @@ try:
     # Ищем строку вида "version: X.Y.Z"
     _ver_line = next((l for l in _lines if l.strip().startswith("version:")), None)
     if _ver_line:
-        __version__ = '0.2.0'
+        __version__ = _ver_line.split(":", 1)[1].strip()
     else:
         # Поддержка старого plain-формата: первая непустая строка без ключа
         _first = next(
             (l.strip() for l in _lines if l.strip() and ":" not in l.split()[0]),
             "",
         )
-        __version__ = '0.2.0'
+        __version__ = _first if _first else '0.2.1'
 except FileNotFoundError:
-    __version__ = '0.2.0'
+    __version__ = '0.2.1'
