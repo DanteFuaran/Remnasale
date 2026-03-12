@@ -11,13 +11,13 @@
   <a href="https://github.com/DanteFuaran/Remnasale/releases"><img src="https://img.shields.io/badge/версия-0.2.0-blue?style=flat-square" alt="version"></a>
   <img src="https://img.shields.io/badge/python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="python">
   <img src="https://img.shields.io/badge/docker-готов-2496ED?style=flat-square&logo=docker&logoColor=white" alt="docker">
+  <a href="README.md"><img src="https://img.shields.io/badge/lang-RU-blue?style=flat-square" alt="RU"></a>
+  <a href="README_EN.md"><img src="https://img.shields.io/badge/lang-EN-lightgrey?style=flat-square" alt="EN"></a>
 </p>
 
 ---
 
 ## 🚀 Быстрый старт
-
-### ▶️ Установка одной командой
 
 ```bash
 cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasale/main/remnasale-install.sh)
@@ -25,31 +25,10 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 
 > После установки управление доступно через команду **`rs`** или **`remnasale`**
 
-### 📝 Данные для настройки
-
-| Параметр | Описание |
-|----------|----------|
-| **Домен бота** | Домен для webhook, например `bot.example.com` |
-| **Токен бота** | Получите в [@BotFather](https://t.me/BotFather) |
-| **Telegram ID владельца** | Числовой ID ([@userinfobot](https://t.me/userinfobot)) |
-| **Username поддержки** | Никнейм группы/канала поддержки (без `@`) |
-| **API токен Remnawave** | Токен из панели с правами администратора |
-
-> ⚠️ Ключи шифрования, пароли БД и Redis генерируются автоматически.
-
-### 📦 Что сделает скрипт
-
-> ✅ Установит Docker и Docker Compose  
-> ✅ Создаст структуру каталогов  
-> ✅ Сгенерирует конфигурацию `.env`  
-> ✅ Развернёт PostgreSQL и Redis  
-> ✅ Запустит бота и применит миграции БД  
-> ✅ Настроит webhook для Telegram  
-> ✅ Установит панель управления `remnasale`  
-
 ---
 
-## ✨ Возможности
+<details>
+<summary>✨ Возможности</summary>
 
 <details>
 <summary>💳 Платёжные системы</summary>
@@ -297,9 +276,12 @@ rs   # или: remnasale
 
 </details>
 
+</details>
+
 ---
 
-## 📋 Требования
+<details>
+<summary>📋 Требования</summary>
 
 | Компонент | Требования |
 |-----------|------------|
@@ -310,9 +292,12 @@ rs   # или: remnasale
 | **Remnawave** | Версия 2.5.24+, API токен администратора |
 | **Telegram Bot** | Токен от @BotFather |
 
+</details>
+
 ---
 
-## 💰 Поддержать проект
+<details>
+<summary>💰 Поддержать проект</summary>
 
 Если проект оказался полезен, вы можете поддержать разработку:
 
@@ -323,6 +308,8 @@ rs   # или: remnasale
 | **ЮMoney** | `4100118836481809` |
 
 ❤️ Спасибо за вашу поддержку!
+
+</details>
 
 ---
 
