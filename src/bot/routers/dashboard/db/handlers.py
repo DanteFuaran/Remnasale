@@ -411,140 +411,162 @@ async def on_restore_backup(
 
     def restore_db():
         import re
+        import gzip
+        import tempfile
         env = os.environ.copy()
         env['PGPASSWORD'] = db_password
 
-        # Предобработка дампа: удаление \restrict/\unrestrict строк
-        try:
-            with open(local_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            # Удаляем строки \restrict и \unrestrict (защита дампа)
-            content = re.sub(r'^\\restrict\s+.*$', '', content, flags=re.MULTILINE)
-            content = re.sub(r'^\\unrestrict\s+.*$', '', content, flags=re.MULTILINE)
-            
-            with open(local_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            logger.info("Preprocessed dump: removed \\restrict/\\unrestrict lines")
-        except Exception as e:
-            logger.warning(f"Failed to preprocess dump: {e}")
-
-        # 0. Сохраняем текущие платёжные шлюзы перед восстановлением
-        saved_gateways = []
-        try:
-            save_cmd = [
-                'psql', '-h', db_host, '-p', db_port, '-U', db_user, '-d', db_name,
-                '-t', '-A', '-c',
-                "SELECT json_agg(row_to_json(pg)) FROM payment_gateways pg"
-            ]
-            save_result = subprocess.run(save_cmd, capture_output=True, text=True, env=env)
-            if save_result.returncode == 0 and save_result.stdout.strip():
-                saved_gateways = json.loads(save_result.stdout.strip())
-                if saved_gateways:
-                    logger.info(f"Saved {len(saved_gateways)} payment gateways before restore")
-                else:
-                    saved_gateways = []
-        except Exception as e:
-            logger.warning(f"Failed to save payment gateways before restore: {e}")
-
-        # 1. Завершаем все активные соединения к базе
-        logger.info("Step 1: Terminating active connections")
-        terminate_cmd = [
-            'psql',
-            '-h', db_host,
-            '-p', db_port,
-            '-U', db_user,
-            '-d', 'postgres',
-            '-c', f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{db_name}' AND pid <> pg_backend_pid();"
-        ]
-        subprocess.run(terminate_cmd, capture_output=True, text=True, env=env)
-
-        # 2. Очистка базы - удаляем схему и создаём заново
-        logger.info("Step 2: Dropping and recreating schema")
-        drop_cmd = [
-            'psql', '-h', db_host, '-p', db_port, '-U', db_user, '-d', db_name,
-            '-c', 'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public;'
-        ]
-        result_drop = subprocess.run(drop_cmd, capture_output=True, text=True, env=env)
-        if result_drop.returncode != 0:
-            logger.error(f"Failed to drop schema: {result_drop.stderr}")
-            return False, f"Drop schema failed: {result_drop.stderr}"
-        
-        # 3. Восстановление базы данных из дампа
-        logger.info(f"Step 3: Restoring database from backup: {local_path}")
-        
-        restore_cmd = [
-            'psql',
-            '-h', db_host,
-            '-p', db_port,
-            '-U', db_user,
-            '-d', db_name,
-            '-f', local_path
-        ]
-        result_restore = subprocess.run(restore_cmd, capture_output=True, text=True, env=env)
-        
-        if result_restore.returncode != 0:
-            logger.warning(f"Restore completed with warnings: {result_restore.stderr}")
-        logger.info("Database restored successfully")
-
-        # 4. Восстанавливаем платёжные шлюзы, которые были до бэкапа, но отсутствуют после
-        if saved_gateways:
+        # Распаковываем .gz файлы во временный файл
+        work_path = local_path
+        temp_file = None
+        if local_path.endswith('.gz'):
             try:
-                # Получаем список типов шлюзов, которые уже есть в восстановленной БД
-                check_cmd = [
+                tmp_fd, tmp_path = tempfile.mkstemp(suffix='.sql')
+                os.close(tmp_fd)
+                with gzip.open(local_path, 'rb') as gz_f:
+                    with open(tmp_path, 'wb') as out_f:
+                        out_f.write(gz_f.read())
+                work_path = tmp_path
+                temp_file = tmp_path
+                logger.info(f"Decompressed {local_path} -> {tmp_path}")
+            except Exception as e:
+                logger.error(f"Failed to decompress backup: {e}")
+                return False, f"Decompression failed: {e}"
+
+        try:
+            # Предобработка дампа: удаление \restrict/\unrestrict строк
+            try:
+                with open(work_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                content = re.sub(r'^\\restrict\s+.*$', '', content, flags=re.MULTILINE)
+                content = re.sub(r'^\\unrestrict\s+.*$', '', content, flags=re.MULTILINE)
+                with open(work_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                logger.info("Preprocessed dump: removed \\restrict/\\unrestrict lines")
+            except Exception as e:
+                logger.warning(f"Failed to preprocess dump: {e}")
+
+            # 0. Сохраняем текущие платёжные шлюзы перед восстановлением
+            saved_gateways = []
+            try:
+                save_cmd = [
                     'psql', '-h', db_host, '-p', db_port, '-U', db_user, '-d', db_name,
                     '-t', '-A', '-c',
-                    "SELECT type FROM payment_gateways"
+                    "SELECT json_agg(row_to_json(pg)) FROM payment_gateways pg"
                 ]
-                check_result = subprocess.run(check_cmd, capture_output=True, text=True, env=env)
-                restored_types = set()
-                if check_result.returncode == 0 and check_result.stdout.strip():
-                    restored_types = set(check_result.stdout.strip().split('\n'))
+                save_result = subprocess.run(save_cmd, capture_output=True, text=True, env=env)
+                if save_result.returncode == 0 and save_result.stdout.strip():
+                    saved_gateways = json.loads(save_result.stdout.strip())
+                    if saved_gateways:
+                        logger.info(f"Saved {len(saved_gateways)} payment gateways before restore")
+                    else:
+                        saved_gateways = []
+            except Exception as e:
+                logger.warning(f"Failed to save payment gateways before restore: {e}")
 
-                # Получаем максимальный order_index в восстановленной БД
-                max_idx_cmd = [
-                    'psql', '-h', db_host, '-p', db_port, '-U', db_user, '-d', db_name,
-                    '-t', '-A', '-c',
-                    "SELECT COALESCE(MAX(order_index), 0) FROM payment_gateways"
-                ]
-                max_idx_result = subprocess.run(max_idx_cmd, capture_output=True, text=True, env=env)
-                next_order = int(max_idx_result.stdout.strip()) + 1 if max_idx_result.returncode == 0 else 1
+            # 1. Завершаем все активные соединения к базе
+            logger.info("Step 1: Terminating active connections")
+            terminate_cmd = [
+                'psql',
+                '-h', db_host,
+                '-p', db_port,
+                '-U', db_user,
+                '-d', 'postgres',
+                '-c', f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{db_name}' AND pid <> pg_backend_pid();"
+            ]
+            subprocess.run(terminate_cmd, capture_output=True, text=True, env=env)
 
-                restored_count = 0
-                for gw in saved_gateways:
-                    gw_type = gw.get('type')
-                    if gw_type and gw_type not in restored_types:
-                        # Этого шлюза нет в бэкапе — возвращаем его из сохранённых данных (неактивным)
-                        settings_json = json.dumps(gw.get('settings')) if gw.get('settings') else 'null'
-                        currency = gw.get('currency', 'USD')
+            # 2. Очистка базы - удаляем схему и создаём заново
+            logger.info("Step 2: Dropping and recreating schema")
+            drop_cmd = [
+                'psql', '-h', db_host, '-p', db_port, '-U', db_user, '-d', db_name,
+                '-c', 'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO public;'
+            ]
+            result_drop = subprocess.run(drop_cmd, capture_output=True, text=True, env=env)
+            if result_drop.returncode != 0:
+                logger.error(f"Failed to drop schema: {result_drop.stderr}")
+                return False, f"Drop schema failed: {result_drop.stderr}"
 
-                        insert_cmd = [
+            # 3. Восстановление базы данных из дампа
+            logger.info(f"Step 3: Restoring database from backup: {work_path}")
+            restore_cmd = [
+                'psql',
+                '-h', db_host,
+                '-p', db_port,
+                '-U', db_user,
+                '-d', db_name,
+                '-v', 'ON_ERROR_STOP=0',
+                '-f', work_path
+            ]
+            result_restore = subprocess.run(restore_cmd, capture_output=True, text=True, env=env, timeout=300)
+            if result_restore.returncode != 0:
+                logger.error(f"Restore failed with code {result_restore.returncode}: {result_restore.stderr}")
+                return False, result_restore.stderr
+            logger.info("Database restored successfully")
+
+            # 4. Восстанавливаем платёжные шлюзы, которые были до бэкапа, но отсутствуют после
+            if saved_gateways:
+                try:
+                    check_cmd = [
+                        'psql', '-h', db_host, '-p', db_port, '-U', db_user, '-d', db_name,
+                        '-t', '-A', '-c',
+                        "SELECT type FROM payment_gateways"
+                    ]
+                    check_result = subprocess.run(check_cmd, capture_output=True, text=True, env=env)
+                    restored_types = set()
+                    if check_result.returncode == 0 and check_result.stdout.strip():
+                        restored_types = set(check_result.stdout.strip().split('\n'))
+
+                    max_idx_cmd = [
+                        'psql', '-h', db_host, '-p', db_port, '-U', db_user, '-d', db_name,
+                        '-t', '-A', '-c',
+                        "SELECT COALESCE(MAX(order_index), 0) FROM payment_gateways"
+                    ]
+                    max_idx_result = subprocess.run(max_idx_cmd, capture_output=True, text=True, env=env)
+                    next_order = int(max_idx_result.stdout.strip()) + 1 if max_idx_result.returncode == 0 else 1
+
+                    restored_count = 0
+                    for gw in saved_gateways:
+                        gw_type = gw.get('type')
+                        if gw_type and gw_type not in restored_types:
+                            settings_json = json.dumps(gw.get('settings')) if gw.get('settings') else 'null'
+                            currency = gw.get('currency', 'USD')
+                            insert_cmd = [
+                                'psql', '-h', db_host, '-p', db_port, '-U', db_user, '-d', db_name,
+                                '-c',
+                                f"INSERT INTO payment_gateways (order_index, type, currency, is_active, settings) "
+                                f"VALUES ({next_order}, '{gw_type}', '{currency}', false, '{settings_json}'::jsonb)"
+                            ]
+                            insert_result = subprocess.run(insert_cmd, capture_output=True, text=True, env=env)
+                            if insert_result.returncode == 0:
+                                logger.info(f"Restored missing payment gateway '{gw_type}' (inactive)")
+                                restored_count += 1
+                                next_order += 1
+                            else:
+                                logger.warning(f"Failed to restore gateway '{gw_type}': {insert_result.stderr}")
+
+                    if restored_count > 0:
+                        seq_cmd = [
                             'psql', '-h', db_host, '-p', db_port, '-U', db_user, '-d', db_name,
                             '-c',
-                            f"INSERT INTO payment_gateways (order_index, type, currency, is_active, settings) "
-                            f"VALUES ({next_order}, '{gw_type}', '{currency}', false, '{settings_json}'::jsonb)"
+                            "SELECT setval('payment_gateways_id_seq', (SELECT COALESCE(MAX(id), 1) FROM payment_gateways))"
                         ]
-                        insert_result = subprocess.run(insert_cmd, capture_output=True, text=True, env=env)
-                        if insert_result.returncode == 0:
-                            logger.info(f"Restored missing payment gateway '{gw_type}' (inactive)")
-                            restored_count += 1
-                            next_order += 1
-                        else:
-                            logger.warning(f"Failed to restore gateway '{gw_type}': {insert_result.stderr}")
+                        subprocess.run(seq_cmd, capture_output=True, text=True, env=env)
+                        logger.info(f"Restored {restored_count} missing payment gateway(s) after backup")
+                except Exception as e:
+                    logger.warning(f"Failed to restore missing payment gateways: {e}")
 
-                if restored_count > 0:
-                    # Обновляем последовательность id после вставки
-                    seq_cmd = [
-                        'psql', '-h', db_host, '-p', db_port, '-U', db_user, '-d', db_name,
-                        '-c',
-                        "SELECT setval('payment_gateways_id_seq', (SELECT COALESCE(MAX(id), 1) FROM payment_gateways))"
-                    ]
-                    subprocess.run(seq_cmd, capture_output=True, text=True, env=env)
-                    logger.info(f"Restored {restored_count} missing payment gateway(s) after backup")
-            except Exception as e:
-                logger.warning(f"Failed to restore missing payment gateways: {e}")
+            return True, None
 
-        return True, None
+        except Exception as e:
+            logger.error(f"restore_db error: {e}")
+            return False, str(e)
+
+        finally:
+            if temp_file and os.path.exists(temp_file):
+                os.remove(temp_file)
+                logger.debug(f"Removed temp file: {temp_file}")
+
 
     try:
         success, error_msg = await loop.run_in_executor(None, restore_db)
@@ -600,7 +622,7 @@ async def on_restore_backup(
             
             try:
                 task = await sync_bot_to_panel_task.kiq()
-                result = await task.wait_result()
+                result = await task.wait_result(timeout=300)
                 sync_result = result.return_value
                 
                 if sync_notification:
