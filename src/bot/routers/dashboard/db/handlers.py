@@ -1164,13 +1164,29 @@ async def on_export_backup_to_db(
                 return False, f"Failed to create temp DB: {result.stderr}"
             
             # Восстанавливаем бэкап во временную БД
-            with open(backup_path, 'r') as f:
+            work_path = backup_path
+            temp_file = None
+            if backup_path.endswith('.gz'):
+                import gzip
+                import tempfile
+                tmp_fd, tmp_path = tempfile.mkstemp(suffix='.sql')
+                os.close(tmp_fd)
+                with gzip.open(backup_path, 'rb') as gz_f:
+                    with open(tmp_path, 'wb') as out_f:
+                        out_f.write(gz_f.read())
+                work_path = tmp_path
+                temp_file = tmp_path
+
+            with open(work_path, 'r') as f:
                 restore_cmd = [
                     'psql', '-h', db_host, '-p', db_port, '-U', db_user, '-d', temp_db_name
                 ]
                 result = subprocess.run(restore_cmd, stdin=f, capture_output=True, text=True, env=env)
                 if result.returncode != 0:
                     logger.warning(f"Restore warnings: {result.stderr}")
+
+            if temp_file and os.path.exists(temp_file):
+                os.remove(temp_file)
             
             # Создаём SQLite базу данных
             sqlite_conn = sqlite3.connect(sqlite_path)
