@@ -8,8 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DanteFuaran/Remnasale/releases"><img src="https://img.shields.io/github/v/release/DanteFuaran/Remnasale?style=flat-square&color=blue&label=версия" alt="version"></a>
-  <a href="https://github.com/DanteFuaran/Remnasale/blob/main/LICENSE"><img src="https://img.shields.io/badge/лицензия-проприетарная-red?style=flat-square" alt="license"></a>
+  <a href="https://github.com/DanteFuaran/Remnasale/releases"><img src="https://img.shields.io/badge/версия-0.2.0-blue?style=flat-square" alt="version"></a>
   <img src="https://img.shields.io/badge/python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="python">
   <img src="https://img.shields.io/badge/docker-готов-2496ED?style=flat-square&logo=docker&logoColor=white" alt="docker">
 </p>
@@ -52,7 +51,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 
 ## ✨ Возможности
 
-### 💳 Платёжные системы
+<details>
+<summary>💳 Платёжные системы</summary>
 
 Бот поддерживает **9 способов оплаты**, задействовать можно несколько одновременно:
 
@@ -66,13 +66,14 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 | 💳 **Robokassa** | Многоканальный эквайринг |
 | 🔐 **Cryptomus** | Криптовалютные платежи |
 | 💎 **Heleket** | Международные криптоплатежи |
-| 🪙 **Cryptopay** | Криптовалютный эквайринг |
+| 💰 **Cryptopay** | Криптовалютный эквайринг |
 
 Помимо внешних шлюзов, поддерживается **внутренний баланс** — пополнение, переводы между пользователями, кешбек.
 
----
+</details>
 
-### 📦 Тарифные планы
+<details>
+<summary>📦 Тарифные планы</summary>
 
 Гибкая настройка любых тарифов прямо из бота без перезапуска:
 
@@ -84,18 +85,20 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 - **Сквады** — поддержка внутренних и внешних сквадов Remnawave
 - **Глобальная скидка** — процентная или фиксированная на все тарифы
 
----
+</details>
 
-### 🎁 Пробный период
+<details>
+<summary>🎁 Пробный период</summary>
 
 - Бесплатный пробный доступ без привязки карты
 - Отдельный тариф для пробника
 - Реферальная пробная подписка (по приглашению)
 - Поддержка ограничения: только для новых пользователей
 
----
+</details>
 
-### 📱 Дополнительные устройства
+<details>
+<summary>📱 Дополнительные устройства</summary>
 
 - Продажа дополнительных слотов устройств
 - **3 режима оплаты:** единоразово / ежемесячно / до конца подписки
@@ -103,9 +106,10 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 - Автопродление с уведомлениями
 - Удаление и управление через меню пользователя
 
----
+</details>
 
-### 🎟 Промокоды
+<details>
+<summary>🎟 Промокоды</summary>
 
 - Скидки **процентные и фиксированные**
 - Ограничение количества активаций и срок действия
@@ -113,9 +117,10 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 - Генерация случайного кода
 - Типы наград: скидка / бесплатная подписка / бонусный баланс / дополнительные дни
 
----
+</details>
 
-### 👥 Реферальная система
+<details>
+<summary>👥 Реферальная система</summary>
 
 - **2 уровня рефералов**
 - Тип награды: деньги или дополнительные дни
@@ -125,9 +130,10 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 - Настраиваемое сообщение-приглашение с предпросмотром
 - История рефералов и выплат
 
----
+</details>
 
-### 💰 Баланс и переводы
+<details>
+<summary>💰 Баланс и переводы</summary>
 
 - Пополнение баланса через любые подключённые шлюзы
 - Переводы между пользователями с настраиваемой комиссией
@@ -135,9 +141,10 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 - Настройка минимальной и максимальной суммы перевода
 - История переводов
 
----
+</details>
 
-### 🔔 Уведомления
+<details>
+<summary>🔔 Уведомления</summary>
 
 **Пользовательские (автоматически):**
 
@@ -153,9 +160,10 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 
 Новые регистрации, покупки, активации промокодов, смена устройства (HWID), статус нод, финансовые операции, жизненный цикл бота, обновления.
 
----
+</details>
 
-### 📢 Рассылки
+<details>
+<summary>📢 Рассылки</summary>
 
 - Отправка по сегментам: **все / по плану / с подпиской / без подписки / просроченным / с пробником**
 - Поддержка текста, фото, видео, документов
@@ -163,9 +171,10 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 - Предпросмотр перед отправкой
 - Статистика доставки и остановка рассылки в процессе
 
----
+</details>
 
-### 🔓 Режим доступа
+<details>
+<summary>🔓 Режим доступа</summary>
 
 | Режим | Описание |
 |-------|----------|
@@ -176,9 +185,10 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 Независимое управление **регистрацией** и **покупками**.  
 Дополнительные условия: обязательное принятие правил, обязательная подписка на канал.
 
----
+</details>
 
-### 🌍 Мультиязычность
+<details>
+<summary>🌍 Мультиязычность</summary>
 
 | Язык | |
 |------|-|
@@ -191,9 +201,10 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 - Возможность зафиксировать единый язык для всех
 - Расширяемость: добавьте папку в `assets/translations/` и укажите в `APP_LOCALES`
 
----
+</details>
 
-### 📡 Интеграция с Remnawave
+<details>
+<summary>📡 Интеграция с Remnawave</summary>
 
 - Синхронизация пользователей и подписок через webhook в реальном времени
 - Создание, продление, смена тарифа напрямую в панели Remnawave
@@ -202,12 +213,10 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 - Мониторинг нод и статуса серверов
 - Поддержка сквадов и инбаундов
 
----
-
-### 👨‍💼 Dashboard (панель администратора)
+</details>
 
 <details>
-<summary>Показать подробности</summary>
+<summary>👨‍💼 Dashboard (панель администратора)</summary>
 
 #### 👥 Пользователи
 - Поиск по ID, username, имени
@@ -264,12 +273,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 
 </details>
 
----
-
-### 🧰 Панель управления сервером (`rs`)
-
 <details>
-<summary>Показать подробности</summary>
+<summary>🧰 Панель управления сервером (`rs`)</summary>
 
 ```bash
 rs   # или: remnasale
@@ -299,13 +304,25 @@ rs   # или: remnasale
 | Компонент | Требования |
 |-----------|------------|
 | **ОС** | Ubuntu 22.04 / 24.04, Debian 11 / 12 |
-| **RAM** | от 2 GB (рекомендуется 4 GB) |
-| **Доступ** | root или sudo |
+| **RAM** | от 1 GB (рекомендуется 2 GB) |
 | **Домен** | A-запись на IP сервера |
-| **Порты** | 80 (HTTP), 443 (HTTPS) |
+| **Порт** | 443 (HTTPS) — порт 80 открывается автоматически только при получении и обновлении сертификатов |
 | **Remnawave** | Версия 2.5.24+, API токен администратора |
 | **Telegram Bot** | Токен от @BotFather |
-| **Docker** | Устанавливается автоматически |
+
+---
+
+## 💰 Поддержать проект
+
+Если проект оказался полезен, вы можете поддержать разработку:
+
+| Метод | Реквизиты |
+|-------|-----------|
+| **USDT (TRC-20)** | `THqJQsgbWY7Tw1BxdLA6SQAkBGVmMhzeLZ` |
+| **BTC (BEP-20)** | `0x657685922d7a9c50e3e90cae3ba9905985349fbb` |
+| **ЮMoney** | `4100118836481809` |
+
+❤️ Спасибо за вашу поддержку!
 
 ---
 
@@ -321,7 +338,7 @@ rs   # или: remnasale
 > ✅ **Payments Provider** подключён для Telegram Stars  
 > ✅ **API токен Remnawave** имеет права администратора  
 > ✅ **URL панели Remnawave** доступен с сервера бота  
-> ✅ Порты **80** и **443** свободны и не заняты другими службами  
+> ✅ Порт **443** свободен и не занят другими службами  
 
 ### Как диагностировать:
 
@@ -329,25 +346,6 @@ rs   # или: remnasale
 > 🔄 Перезапустите бота: `rs` → `🔃 Перезагрузить бота`  
 > ⚙️ Проверьте `.env`: `rs` → `⚙️ Изменить настройки`  
 > 🆘 Если не помогает — откройте **Issue** на GitHub с логами  
-
-</details>
-
----
-
-## 💰 Поддержать проект
-
-<details>
-<summary>Показать реквизиты</summary>
-
-Если проект оказался полезен, вы можете поддержать разработку:
-
-| Метод | Реквизиты |
-|-------|-----------|
-| **USDT (TRC-20)** | `THqJQsgbWY7Tw1BxdLA6SQAkBGVmMhzeLZ` |
-| **BTC (BEP-20)** | `0x657685922d7a9c50e3e90cae3ba9905985349fbb` |
-| **ЮMoney** | `4100118836481809` |
-
-❤️ Спасибо за вашу поддержку!
 
 </details>
 
