@@ -1360,15 +1360,9 @@ manage_update_bot() {
     # Создаём временную папку для клонирования репозитория
     TEMP_REPO=$(mktemp -d)
     
-    # Проверка обновлений с спинером
-    show_spinner "Проверка обновлений" &
-    SPINNER_PID=$!
-    
-    git clone -b "$REPO_BRANCH" --depth 1 "$REPO_URL" "$TEMP_REPO" >/dev/null 2>&1
-    
-    # Убиваем спинер после завершения клонирования
-    kill $SPINNER_PID 2>/dev/null || true
-    wait $SPINNER_PID 2>/dev/null || true
+    # Поиск обновлений с спинером
+    git clone -b "$REPO_BRANCH" --depth 1 "$REPO_URL" "$TEMP_REPO" >/dev/null 2>&1 &
+    show_spinner "Поиск обновлений"
     
     # Получаем версии (из файла version)
     REMOTE_VERSION=$(parse_version_from_content "$(cat "$TEMP_REPO/version" 2>/dev/null)")
