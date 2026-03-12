@@ -31,8 +31,8 @@ cd /opt && bash <(curl -s https://raw.githubusercontent.com/DanteFuaran/Remnasal
 
 <details>
 <summary>Показать подробности</summary>
+
 <details>
-  
 <summary>💳 Платёжные системы</summary>
 
 Бот поддерживает **9 способов оплаты**, задействовать можно несколько одновременно:
