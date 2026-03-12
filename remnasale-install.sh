@@ -823,7 +823,7 @@ EOF
             "⬆️   Включить бота" \
             "⬇️   Выключить бота" \
             "──────────────────────────────────────" \
-            "�  Автобекап" \
+            "💾  База данных" \
             "──────────────────────────────────────" \
             "🔄  Переустановить" \
             "⚙️   Изменить настройки" \
@@ -841,7 +841,7 @@ EOF
             5)  manage_restart_bot_with_logs ;;
             6)  manage_start_bot ;;
             7)  manage_stop_bot ;;
-            9)  manage_autobackup ;;
+            9)  manage_database ;;
             11) manage_reinstall_bot ;;
             12) manage_change_settings ;;
             13) manage_cleanup_database ;;
@@ -853,76 +853,296 @@ EOF
 }
 
 # ═══════════════════════════════════════════════
-# АВТОБЕКАП
+# БАЗА ДАННЫХ: СОХРАНЕНИЕ/ЗАГРУЗКА/АВТОБЕКАП
 # ═══════════════════════════════════════════════
 
 AUTOBACKUP_SCRIPT="/usr/local/lib/remnasale/autobackup.sh"
-AUTOBACKUP_CONFIG="/opt/remnasale/.autobackup"
+AUTOBACKUP_CONFIG="/opt/remnasale/.env"
 
-# Отправка файла в Telegram
-_send_backup_to_telegram() {
-    local token="$1"
-    local chat_id="$2"
-    local file_path="$3"
-    local caption="${4:-}"
-    curl -s -F "chat_id=$chat_id" \
-         -F "document=@$file_path" \
-         -F "caption=$caption" \
-         "https://api.telegram.org/bot${token}/sendDocument" >/dev/null 2>&1
+db_backup() {
+    clear
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo -e "${GREEN}       💾  Сохранение базы данных${NC}"
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo
+
+    # Проверяем что контейнер БД запущен
+    if ! docker ps --filter "name=remnasale-db" --format "{{.Names}}" 2>/dev/null | grep -q "remnasale-db"; then
+        print_error "Контейнер remnasale-db не запущен"
+        echo
+        echo -e "${BLUE}══════════════════════════════════════${NC}"
+        echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+        read -p ""
+        return 1
+    fi
+
+    local backup_dir="/opt/remnasale/backups"
+    mkdir -p "$backup_dir"
+
+    local mn_ts mn_final
+    mn_ts=$(date +%Y-%m-%d_%H-%M)
+    mn_final="${backup_dir}/Remnasale_${mn_ts}.sql.gz"
+
+    (
+        docker exec remnasale-db pg_dumpall -c -U postgres 2>/dev/null | gzip -9 > "$mn_final"
+    ) &
+    show_spinner "Создание дампа базы данных"
+
+    if [ ! -s "$mn_final" ]; then
+        rm -f "$mn_final"
+        print_error "Не удалось создать дамп"
+        echo
+        echo -e "${BLUE}══════════════════════════════════════${NC}"
+        echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+        read -p ""
+        return 1
+    fi
+
+    local mn_size
+    mn_size=$(du -h "$mn_final" | awk '{print $1}')
+    local mn_date
+    mn_date=$(date '+%d.%m.%Y %H:%M')
+
+    # Отправка в Telegram (если настроен автобекап)
+    if [ -f "$AUTOBACKUP_CONFIG" ]; then
+        local mn_token mn_chat
+        mn_token=$(grep '^BACKUP_BOT_TOKEN=' "$AUTOBACKUP_CONFIG" 2>/dev/null | cut -d= -f2-)
+        mn_chat=$(grep '^BACKUP_CHAT_ID=' "$AUTOBACKUP_CONFIG" 2>/dev/null | cut -d= -f2-)
+
+        if [ -n "$mn_token" ] && [ -n "$mn_chat" ]; then
+            local mn_caption
+            mn_caption="📦 Приложение: Remnasale
+📁 Дамп БД
+📏 Размер: ${mn_size}
+📅 ${mn_date} МСК
+
+✅ Бекап создан вручную"
+            (
+                curl -s \
+                    -F "chat_id=$mn_chat" \
+                    -F "document=@$mn_final" \
+                    -F "caption=$mn_caption" \
+                    "https://api.telegram.org/bot${mn_token}/sendDocument" > /tmp/_rs_ab_result 2>&1
+            ) &
+            show_spinner "Отправка в Telegram"
+
+            local send_ok=false
+            grep -q '"ok":true' /tmp/_rs_ab_result 2>/dev/null && send_ok=true
+            rm -f /tmp/_rs_ab_result 2>/dev/null || true
+
+            if ! $send_ok; then
+                print_error "Не удалось отправить в Telegram"
+            fi
+        fi
+    fi
+
+    echo
+    print_success "Бекап успешно создан!"
+    echo
+    echo -e "  📄 $(basename "$mn_final")"
+    echo -e "  📏 Размер: ${YELLOW}${mn_size}${NC}"
+    echo
+
+    # Удаляем бекапы старше 7 дней
+    find "$backup_dir" -maxdepth 1 -name "Remnasale_*.sql.gz" -mtime +7 -delete 2>/dev/null || true
+
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+    read -p ""
 }
 
-# Создание скрипта автобекапа
+db_restore() {
+    clear
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo -e "${GREEN}   📥 ЗАГРУЗКА БАЗЫ ДАННЫХ${NC}"
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo
+
+    # Проверяем что контейнер БД запущен
+    if ! docker ps --filter "name=remnasale-db" --format "{{.Names}}" 2>/dev/null | grep -q "remnasale-db"; then
+        print_error "Контейнер remnasale-db не запущен"
+        echo
+        echo -e "${BLUE}══════════════════════════════════════${NC}"
+        echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+        read -p ""
+        return 1
+    fi
+
+    local backup_dir="/opt/remnasale/backups"
+    local has_files=false
+
+    if [ -d "$backup_dir" ]; then
+        compgen -G "$backup_dir/*.sql.gz" > /dev/null 2>&1 && has_files=true
+    fi
+
+    if [ "$has_files" = false ]; then
+        echo -e "${YELLOW}⚠️  Бекапы не найдены в ${WHITE}${backup_dir}${NC}"
+        echo
+        echo -e "${WHITE}Поместите файл бекапа (.sql.gz) в эту папку${NC}"
+        echo -e "${WHITE}или укажите путь к файлу вручную.${NC}"
+        echo
+
+        tput cnorm 2>/dev/null || true
+        reading "Путь к файлу бэкапа (или Enter для отмены):" custom_dump_path
+
+        if [ -z "$custom_dump_path" ]; then
+            return 0
+        fi
+
+        if [ ! -f "$custom_dump_path" ]; then
+            print_error "Файл не найден: ${custom_dump_path}"
+            echo
+            echo -e "${BLUE}══════════════════════════════════════${NC}"
+            echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+            read -p ""
+            return 1
+        fi
+
+        mkdir -p "$backup_dir"
+        cp "$custom_dump_path" "$backup_dir/"
+    fi
+
+    # Собираем список бэкапов
+    local backup_files=()
+    local menu_items=()
+    while IFS= read -r file; do
+        backup_files+=("$file")
+        local fname fsize display_label
+        fname=$(basename "$file")
+        fsize=$(du -h "$file" | cut -f1)
+        if [[ "$fname" =~ ^([A-Za-z]+)_([0-9]{4})-([0-9]{2})-([0-9]{2})_([0-9]{2})-([0-9]{2})\.(sql\.gz)$ ]]; then
+            local pname pyear pmon pday phour pmin
+            pname="${BASH_REMATCH[1]}"
+            pyear="${BASH_REMATCH[2]}"
+            pmon="${BASH_REMATCH[3]}"
+            pday="${BASH_REMATCH[4]}"
+            phour="${BASH_REMATCH[5]}"
+            pmin="${BASH_REMATCH[6]}"
+            display_label="${pname} | ${pday}.${pmon}.${pyear} | ${phour}:${pmin} | ${fsize}"
+        else
+            display_label="${fname} (${fsize})"
+        fi
+        menu_items+=("📄  ${display_label}")
+    done < <(find "$backup_dir" -maxdepth 1 -name "*.sql.gz" | sort -r)
+
+    if [ ${#backup_files[@]} -eq 0 ]; then
+        print_error "Файлы бэкапов не найдены"
+        echo
+        echo -e "${BLUE}══════════════════════════════════════${NC}"
+        echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+        read -p ""
+        return 1
+    fi
+
+    menu_items+=("──────────────────────────────────────")
+    menu_items+=("❌  Назад")
+
+    show_arrow_menu "📥  Выберите бэкап для загрузки" "${menu_items[@]}"
+    local choice=$?
+
+    if [ $choice -ge ${#backup_files[@]} ] || [ $choice -eq 255 ]; then
+        return 0
+    fi
+
+    local selected_file="${backup_files[$choice]}"
+    local selected_name
+    selected_name=$(basename "$selected_file")
+
+    clear
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo -e "${GREEN}   📥 ЗАГРУЗКА БАЗЫ ДАННЫХ${NC}"
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo
+    echo -e "${WHITE}Файл:${NC} ${DARKGRAY}${selected_name}${NC}"
+    echo -e "${WHITE}Режим:${NC} ${YELLOW}Полное восстановление${NC}"
+    echo
+    echo -e "${DARKGRAY}──────────────────────────────────────${NC}"
+    echo
+    echo -e "${YELLOW}⚠️  ВНИМАНИЕ!${NC}"
+    echo -e "${WHITE}Все текущие данные бота будут заменены.${NC}"
+    echo
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+
+    if ! confirm_action; then
+        print_error "Операция отменена"
+        sleep 2
+        return 0
+    fi
+
+    echo
+
+    # Останавливаем бота
+    (
+        cd /opt/remnasale
+        docker compose stop remnasale remnasale-taskiq-worker remnasale-taskiq-scheduler >/dev/null 2>&1
+    ) &
+    show_spinner "Остановка бота"
+
+    # Очищаем базу данных
+    (
+        docker exec remnasale-db psql -U postgres -d postgres -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" >/dev/null 2>&1
+    ) &
+    show_spinner "Подготовка базы данных"
+
+    # Восстанавливаем дамп
+    (
+        zcat "$selected_file" | docker exec -i remnasale-db psql -U postgres -d postgres >/dev/null 2>&1
+    ) &
+    show_spinner "Загрузка данных из бэкапа"
+
+    # Запускаем бота
+    (
+        cd /opt/remnasale
+        docker compose up -d remnasale remnasale-taskiq-worker remnasale-taskiq-scheduler >/dev/null 2>&1
+    ) &
+    show_spinner "Запуск бота"
+
+    echo
+    print_success "База данных успешно загружена!"
+    echo
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+    read -p ""
+}
+
+# Создание скрипта автобекапа (только дамп БД)
 _create_autobackup_script() {
-    local bot_token="$1"
-    local chat_id="$2"
     sudo mkdir -p "$(dirname "$AUTOBACKUP_SCRIPT")" 2>/dev/null || true
     cat > "$AUTOBACKUP_SCRIPT" << 'BACKUP_SCRIPT'
 #!/bin/bash
-# Remnasale Auto-Backup Script
 set -euo pipefail
 
-CONFIG="/opt/remnasale/.autobackup"
+CONFIG="/opt/remnasale/.env"
 [ -f "$CONFIG" ] || exit 0
-BOT_TOKEN=$(grep '^bot_token:' "$CONFIG" | cut -d: -f2- | tr -d ' ')
-CHAT_ID=$(grep '^chat_id:' "$CONFIG" | cut -d: -f2- | tr -d ' ')
+BOT_TOKEN=$(grep '^BACKUP_BOT_TOKEN=' "$CONFIG" | cut -d= -f2-)
+CHAT_ID=$(grep '^BACKUP_CHAT_ID=' "$CONFIG" | cut -d= -f2-)
 [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ] && exit 1
 
 BACKUP_DIR="/opt/remnasale/backups"
 mkdir -p "$BACKUP_DIR"
 TIMESTAMP=$(date +%Y-%m-%d_%H-%M)
-DUMP_FILE="${BACKUP_DIR}/dump_${TIMESTAMP}.sql.gz"
-DIR_ARCHIVE="${BACKUP_DIR}/dir_${TIMESTAMP}.tar.gz"
-FINAL_FILE="${BACKUP_DIR}/Remnasale_${TIMESTAMP}.tar.gz"
+FINAL_FILE="${BACKUP_DIR}/Remnasale_${TIMESTAMP}.sql.gz"
 
 # Дамп БД
-docker exec remnasale-db pg_dumpall -c -U postgres 2>/dev/null | gzip -9 > "$DUMP_FILE"
-if [ ! -s "$DUMP_FILE" ]; then
-    rm -f "$DUMP_FILE"
+docker exec remnasale-db pg_dumpall -c -U postgres 2>/dev/null | gzip -9 > "$FINAL_FILE"
+if [ ! -s "$FINAL_FILE" ]; then
+    rm -f "$FINAL_FILE"
     exit 1
 fi
 
-# Архив директории
-tar -czf "$DIR_ARCHIVE" --exclude='*.log' --exclude='*.tmp' --exclude='.git' --exclude='backups' -C /opt remnasale 2>/dev/null || true
-
-# Финальный архив
-tar -czf "$FINAL_FILE" -C "$BACKUP_DIR" "$(basename "$DUMP_FILE")" "$(basename "$DIR_ARCHIVE")" 2>/dev/null
-rm -f "$DUMP_FILE" "$DIR_ARCHIVE"
-
-if [ -s "$FINAL_FILE" ]; then
-    SIZE=$(du -h "$FINAL_FILE" | awk '{print $1}')
-    DATE=$(date '+%d.%m.%Y %H:%M')
-    CAPTION="💾 #remnasale_backup
+SIZE=$(du -h "$FINAL_FILE" | awk '{print $1}')
+DATE=$(date '+%d.%m.%Y %H:%M')
+CAPTION="💾 #remnasale_backup
 ➖➖➖➖➖➖➖➖➖
 ✅ Бекап успешно создан
-📁 БД + Директория
+📁 Дамп БД
 📏 Размер: ${SIZE}
 📅 ${DATE} MSK"
-    curl -s -F "chat_id=$CHAT_ID" \
-         -F "document=@$FINAL_FILE" \
-         -F "caption=$CAPTION" \
-         "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" >/dev/null 2>&1
-    find "$BACKUP_DIR" -name "Remnasale_*.tar.gz" -mtime +7 -delete 2>/dev/null || true
-fi
+curl -s -F "chat_id=$CHAT_ID" \
+     -F "document=@$FINAL_FILE" \
+     -F "caption=$CAPTION" \
+     "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" >/dev/null 2>&1
+find "$BACKUP_DIR" -name "Remnasale_*.sql.gz" -mtime +7 -delete 2>/dev/null || true
 BACKUP_SCRIPT
     chmod +x "$AUTOBACKUP_SCRIPT"
 }
@@ -932,9 +1152,9 @@ _get_cron_schedule() {
     local freq="$1"
     case "$freq" in
         hourly)  echo "0 * * * *" ;;
-        daily)   echo "0 21 * * *" ;;   # 00:00 MSK = 21:00 UTC
-        weekly)  echo "0 21 * * 0" ;;   # воскресенье 00:00 MSK
-        monthly) echo "0 21 1 * *" ;;   # 1-е число 00:00 MSK
+        daily)   echo "0 21 * * *" ;;
+        weekly)  echo "0 21 * * 0" ;;
+        monthly) echo "0 21 1 * *" ;;
     esac
 }
 
@@ -960,252 +1180,165 @@ _autobackup_get_frequency() {
     esac
 }
 
-manage_autobackup() {
+# Настройка автобекапа
+_configure_autobackup() {
+    clear
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo -e "${GREEN}   ⚙️  НАСТРОЙКА АВТОБЕКАПА${NC}"
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo
+
+    # Токен бота
+    local backup_bot_token=""
+    if [ -f "$AUTOBACKUP_CONFIG" ]; then
+        backup_bot_token=$(grep '^BACKUP_BOT_TOKEN=' "$AUTOBACKUP_CONFIG" 2>/dev/null | cut -d= -f2-)
+    fi
+    local current_hint=""
+    [ -n "$backup_bot_token" ] && current_hint=" (Enter = оставить текущий)"
+    tput cnorm 2>/dev/null || true
+    reading_inline "Токен бота для бекапов${current_hint}:" new_backup_token
+    if [ -z "$new_backup_token" ] && [ -n "$backup_bot_token" ]; then
+        new_backup_token="$backup_bot_token"
+    fi
+    if [ -z "$new_backup_token" ]; then
+        print_error "Токен не может быть пустым"
+        echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+        read -p ""
+        return
+    fi
+
+    # Chat ID
+    local backup_chat_id=""
+    if [ -f "$AUTOBACKUP_CONFIG" ]; then
+        backup_chat_id=$(grep '^BACKUP_CHAT_ID=' "$AUTOBACKUP_CONFIG" 2>/dev/null | cut -d= -f2-)
+    fi
+    current_hint=""
+    [ -n "$backup_chat_id" ] && current_hint=" (Enter = оставить текущий)"
+    reading_inline "Telegram ID для получения бекапов${current_hint}:" new_chat_id
+    if [ -z "$new_chat_id" ] && [ -n "$backup_chat_id" ]; then
+        new_chat_id="$backup_chat_id"
+    fi
+    if [ -z "$new_chat_id" ]; then
+        print_error "ID не может быть пустым"
+        echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+        read -p ""
+        return
+    fi
+
+    # Частота
+    echo
+    show_arrow_menu "Частота бекапа" \
+        "⏱️   Каждый час" \
+        "📅  Каждый день (00:00 МСК)" \
+        "📆  Каждую неделю (Вс 00:00 МСК)" \
+        "🗓️   Каждый месяц (1-е число, 00:00 МСК)"
+    local freq_choice=$?
+
+    local frequency=""
+    case $freq_choice in
+        0) frequency="hourly" ;;
+        1) frequency="daily" ;;
+        2) frequency="weekly" ;;
+        3) frequency="monthly" ;;
+        255) return ;;
+    esac
+
+    # Сохраняем настройки в .env
+    mkdir -p "$(dirname "$AUTOBACKUP_CONFIG")" 2>/dev/null || true
+    local _rs_envfile="$AUTOBACKUP_CONFIG"
+    for _rs_pair in "BACKUP_BOT_TOKEN=$new_backup_token" "BACKUP_CHAT_ID=$new_chat_id" "BACKUP_FREQUENCY=$frequency"; do
+        local _rs_key="${_rs_pair%%=*}" _rs_val="${_rs_pair#*=}"
+        if grep -q "^${_rs_key}=" "$_rs_envfile" 2>/dev/null; then
+            sed -i "s|^${_rs_key}=.*|${_rs_key}=${_rs_val}|" "$_rs_envfile"
+        else
+            echo "${_rs_key}=${_rs_val}" >> "$_rs_envfile"
+        fi
+    done
+
+    # Создаём скрипт бекапа
+    _create_autobackup_script
+
+    # Устанавливаем cron
+    local cron_schedule
+    cron_schedule=$(_get_cron_schedule "$frequency")
+    (crontab -l 2>/dev/null | grep -v "$AUTOBACKUP_SCRIPT"; echo "$cron_schedule $AUTOBACKUP_SCRIPT") | crontab -
+
+    clear
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo -e "${GREEN}       💾 АВТОБЕКАП НАСТРОЕН${NC}"
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo
+    echo -e "${GREEN}✅ Автобекап успешно настроен${NC}"
+    echo
+    local freq_label
+    case $frequency in
+        hourly)  freq_label="Каждый час" ;;
+        daily)   freq_label="Каждый день (00:00 МСК)" ;;
+        weekly)  freq_label="Каждую неделю (Вс 00:00 МСК)" ;;
+        monthly) freq_label="Каждый месяц (1-е число, 00:00 МСК)" ;;
+    esac
+    echo -e "  Частота: ${YELLOW}${freq_label}${NC}"
+    echo -e "  Получатель: ${YELLOW}${new_chat_id}${NC}"
+    echo
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+    read -p ""
+}
+
+# Остановка автобекапа
+_stop_autobackup() {
+    (crontab -l 2>/dev/null | grep -v "$AUTOBACKUP_SCRIPT") | crontab -
+    sed -i '/^BACKUP_BOT_TOKEN=\|^BACKUP_CHAT_ID=\|^BACKUP_FREQUENCY=/d' "$AUTOBACKUP_CONFIG" 2>/dev/null || true
+    clear
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo -e "${GREEN}       💾 АВТОБЕКАП${NC}"
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo
+    echo -e "${GREEN}✅ Автобекап остановлен${NC}"
+    echo
+    echo -e "${BLUE}══════════════════════════════════════${NC}"
+    echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+    read -p ""
+}
+
+# Меню базы данных
+manage_database() {
     while true; do
-        local status_label
+        local menu_items=()
+        local db_actions=()
+
+        menu_items+=("💾  Сохранить базу данных");     db_actions+=("backup")
+        menu_items+=("📥  Загрузить базу данных");     db_actions+=("restore")
+        menu_items+=("──────────────────────────────────────"); db_actions+=("sep")
+
+        if _autobackup_is_active; then
+            menu_items+=("⚙️   Изменить настройки автобекапа"); db_actions+=("ab_configure")
+            menu_items+=("⛔  Остановить автобекап");           db_actions+=("ab_stop")
+        else
+            menu_items+=("⚙️   Включить автобекап");            db_actions+=("ab_configure")
+        fi
+        menu_items+=("──────────────────────────────────────"); db_actions+=("sep")
+        menu_items+=("❌  Назад");                              db_actions+=("back")
+
+        local menu_title="   💾  Работа с базой данных"
         if _autobackup_is_active; then
             local freq
             freq=$(_autobackup_get_frequency)
-            status_label="📊 Статус: ${GREEN}Активен${NC} (${freq})"
-        else
-            status_label="📊 Статус: ${RED}Не настроен${NC}"
+            menu_title="   💾  Работа с базой данных\n   📊  Автобекап: ${GREEN}${freq}${NC}"
         fi
 
-        clear
-        echo -e "${BLUE}══════════════════════════════════════${NC}"
-        echo -e "${GREEN}       💾 АВТОБЕКАП REMNASALE${NC}"
-        echo -e "${BLUE}══════════════════════════════════════${NC}"
-        echo
-        echo -e "  $status_label"
-        echo
-
-        local menu_items=()
-        if _autobackup_is_active; then
-            menu_items+=("⚙️   Изменить настройки")
-            menu_items+=("📤  Создать бекап сейчас")
-            menu_items+=("⛔  Остановить автобекап")
-        else
-            menu_items+=("⚙️   Настройка автобекапа")
-        fi
-        menu_items+=("──────────────────────────────────────")
-        menu_items+=("❌  Назад")
-
-        show_arrow_menu "💾 АВТОБЕКАП" "${menu_items[@]}"
+        show_arrow_menu "$menu_title" "${menu_items[@]}"
         local choice=$?
+        [[ $choice -eq 255 ]] && return
+        local db_action="${db_actions[$choice]:-back}"
 
-        case $choice in
-            0)
-                # Настройка / Изменить
-                clear
-                echo -e "${BLUE}══════════════════════════════════════${NC}"
-                echo -e "${GREEN}   ⚙️  НАСТРОЙКА АВТОБЕКАПА${NC}"
-                echo -e "${BLUE}══════════════════════════════════════${NC}"
-                echo
-
-                # Токен бота
-                local backup_bot_token=""
-                if [ -f "$AUTOBACKUP_CONFIG" ]; then
-                    backup_bot_token=$(grep '^bot_token:' "$AUTOBACKUP_CONFIG" 2>/dev/null | cut -d: -f2- | tr -d ' ')
-                fi
-                local current_hint=""
-                [ -n "$backup_bot_token" ] && current_hint=" (Enter = оставить текущий)"
-                tput cnorm 2>/dev/null || true
-                reading_inline "Токен бота для бекапов${current_hint}:" new_backup_token
-                if [ -z "$new_backup_token" ] && [ -n "$backup_bot_token" ]; then
-                    new_backup_token="$backup_bot_token"
-                fi
-                if [ -z "$new_backup_token" ]; then
-                    print_error "Токен не может быть пустым"
-                    echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
-                    read -p ""
-                    continue
-                fi
-
-                # Chat ID
-                local backup_chat_id=""
-                if [ -f "$AUTOBACKUP_CONFIG" ]; then
-                    backup_chat_id=$(grep '^chat_id:' "$AUTOBACKUP_CONFIG" 2>/dev/null | cut -d: -f2- | tr -d ' ')
-                fi
-                current_hint=""
-                [ -n "$backup_chat_id" ] && current_hint=" (Enter = оставить текущий)"
-                reading_inline "Telegram ID для получения бекапов${current_hint}:" new_chat_id
-                if [ -z "$new_chat_id" ] && [ -n "$backup_chat_id" ]; then
-                    new_chat_id="$backup_chat_id"
-                fi
-                if [ -z "$new_chat_id" ]; then
-                    print_error "ID не может быть пустым"
-                    echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
-                    read -p ""
-                    continue
-                fi
-
-                # Частота
-                echo
-                show_arrow_menu "Частота бекапа" \
-                    "⏱️   Каждый час" \
-                    "📅  Каждый день (00:00 МСК)" \
-                    "📆  Каждую неделю (Вс 00:00 МСК)" \
-                    "🗓️   Каждый месяц (1-е число, 00:00 МСК)"
-                local freq_choice=$?
-
-                local frequency=""
-                case $freq_choice in
-                    0) frequency="hourly" ;;
-                    1) frequency="daily" ;;
-                    2) frequency="weekly" ;;
-                    3) frequency="monthly" ;;
-                    255) continue ;;
-                esac
-
-                # Сохраняем конфиг
-                cat > "$AUTOBACKUP_CONFIG" << EOF
-bot_token: $new_backup_token
-chat_id: $new_chat_id
-frequency: $frequency
-EOF
-
-                # Создаём скрипт бекапа
-                _create_autobackup_script "$new_backup_token" "$new_chat_id"
-
-                # Устанавливаем cron
-                local cron_schedule
-                cron_schedule=$(_get_cron_schedule "$frequency")
-                (crontab -l 2>/dev/null | grep -v "$AUTOBACKUP_SCRIPT"; echo "$cron_schedule $AUTOBACKUP_SCRIPT") | crontab -
-
-                clear
-                echo -e "${BLUE}══════════════════════════════════════${NC}"
-                echo -e "${GREEN}       💾 АВТОБЕКАП НАСТРОЕН${NC}"
-                echo -e "${BLUE}══════════════════════════════════════${NC}"
-                echo
-                echo -e "${GREEN}✅ Автобекап успешно настроен${NC}"
-                echo
-                local freq_label
-                case $frequency in
-                    hourly)  freq_label="Каждый час" ;;
-                    daily)   freq_label="Каждый день (00:00 МСК)" ;;
-                    weekly)  freq_label="Каждую неделю (Вс 00:00 МСК)" ;;
-                    monthly) freq_label="Каждый месяц (1-е число, 00:00 МСК)" ;;
-                esac
-                echo -e "  Частота: ${YELLOW}${freq_label}${NC}"
-                echo -e "  Получатель: ${YELLOW}${new_chat_id}${NC}"
-                echo
-                echo -e "${BLUE}══════════════════════════════════════${NC}"
-                echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
-                read -p ""
-                ;;
-            1)
-                if _autobackup_is_active; then
-                    # Создать бекап сейчас
-                    local mn_token mn_chat
-                    mn_token=$(grep '^bot_token:' "$AUTOBACKUP_CONFIG" 2>/dev/null | cut -d: -f2- | tr -d ' ')
-                    mn_chat=$(grep '^chat_id:' "$AUTOBACKUP_CONFIG" 2>/dev/null | cut -d: -f2- | tr -d ' ')
-
-                    clear
-                    echo -e "${BLUE}══════════════════════════════════════${NC}"
-                    echo -e "${GREEN}       📤 СОЗДАНИЕ БЕКАПА${NC}"
-                    echo -e "${BLUE}══════════════════════════════════════${NC}"
-                    echo
-
-                    local mn_ts mn_dump mn_dir mn_final mn_tmp
-                    mn_ts=$(date +%Y-%m-%d_%H-%M)
-                    mn_tmp="/tmp/_rs_backup_$$"
-                    mkdir -p "$mn_tmp"
-                    mn_dump="${mn_tmp}/dump_${mn_ts}.sql.gz"
-                    mn_dir="${mn_tmp}/dir_${mn_ts}.tar.gz"
-                    mn_final="${mn_tmp}/Remnasale_${mn_ts}.tar.gz"
-
-                    (
-                        docker exec remnasale-db pg_dumpall -c -U postgres 2>/dev/null | gzip -9 > "$mn_dump"
-                    ) &
-                    show_spinner "Создание дампа базы данных"
-
-                    if [ ! -s "$mn_dump" ]; then
-                        print_error "Не удалось создать дамп"
-                        rm -rf "$mn_tmp"
-                        echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
-                        read -p ""
-                        continue
-                    fi
-
-                    (
-                        tar -czf "$mn_dir" --exclude='*.log' --exclude='*.tmp' --exclude='.git' --exclude='backups' -C /opt remnasale 2>/dev/null || true
-                    ) &
-                    show_spinner "Архивирование директории"
-
-                    (
-                        tar -czf "$mn_final" -C "$mn_tmp" "$(basename "$mn_dump")" "$(basename "$mn_dir")" 2>/dev/null
-                    ) &
-                    show_spinner "Создание финального архива"
-                    rm -f "$mn_dump" "$mn_dir" 2>/dev/null
-
-                    if [ ! -s "$mn_final" ]; then
-                        print_error "Не удалось создать архив"
-                        rm -rf "$mn_tmp"
-                        echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
-                        read -p ""
-                        continue
-                    fi
-
-                    local mn_size
-                    mn_size=$(du -h "$mn_final" | awk '{print $1}')
-                    local mn_date
-                    mn_date=$(date '+%d.%m.%Y %H:%M')
-                    local mn_caption
-                    mn_caption="💾 #remnasale_backup
-➖➖➖➖➖➖➖➖➖
-✅ Бекап создан вручную
-📁 БД + Директория
-📏 Размер: ${mn_size}
-📅 ${mn_date} MSK"
-
-                    (
-                        curl -s \
-                            -F "chat_id=$mn_chat" \
-                            -F "document=@$mn_final" \
-                            -F "caption=$mn_caption" \
-                            "https://api.telegram.org/bot${mn_token}/sendDocument" > /tmp/_rs_ab_result 2>&1
-                    ) &
-                    show_spinner "Отправка в Telegram"
-
-                    local send_ok=false
-                    grep -q '"ok":true' /tmp/_rs_ab_result 2>/dev/null && send_ok=true
-                    rm -f /tmp/_rs_ab_result 2>/dev/null || true
-                    rm -rf "$mn_tmp" 2>/dev/null || true
-
-                    if $send_ok; then
-                        print_success "Бекап успешно отправлен в Telegram"
-                        echo -e "  📏 Размер: ${YELLOW}${mn_size}${NC}"
-                    else
-                        print_error "Не удалось отправить бекап (проверьте токен/chat_id)"
-                    fi
-                    echo
-                    echo -e "${BLUE}══════════════════════════════════════${NC}"
-                    echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
-                    read -p ""
-                else
-                    return
-                fi
-                ;;
-            2)
-                if _autobackup_is_active; then
-                    # Остановить автобекап
-                    (crontab -l 2>/dev/null | grep -v "$AUTOBACKUP_SCRIPT") | crontab -
-                    rm -f "$AUTOBACKUP_CONFIG" 2>/dev/null || true
-                    clear
-                    echo -e "${BLUE}══════════════════════════════════════${NC}"
-                    echo -e "${GREEN}       💾 АВТОБЕКАП${NC}"
-                    echo -e "${BLUE}══════════════════════════════════════${NC}"
-                    echo
-                    echo -e "${GREEN}✅ Автобекап остановлен${NC}"
-                    echo
-                    echo -e "${BLUE}══════════════════════════════════════${NC}"
-                    echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
-                    read -p ""
-                else
-                    return
-                fi
-                ;;
-            *) return ;;
+        case "$db_action" in
+            backup)       db_backup ;;
+            restore)      db_restore ;;
+            ab_configure) _configure_autobackup ;;
+            ab_stop)      _stop_autobackup ;;
+            back)         return ;;
+            *)            continue ;;
         esac
     done
 }
