@@ -1442,8 +1442,6 @@ manage_update_bot() {
             echo -e "   Новая версия:    ${GREEN}v${REMOTE_VERSION}${NC}"
         fi
         echo
-        echo -e "${YELLOW}🚀 Запуск обновления...${NC}"
-        echo
         echo -e "${BLUE}──────────────────────────────────────${NC}"
         echo
         # Сохраняем критические переменные перед обновлением
@@ -1544,9 +1542,7 @@ manage_update_bot() {
             
             # Запускаем контейнеры и ожидаем запуска бота
             cd "$PROJECT_DIR" || return
-            docker compose up -d >/dev/null 2>&1
-            
-            echo
+            docker compose up -d >/dev/null 2>&1 &
             
             # Ждем появления логотипа Remnasale в логах
             show_spinner_until_log "remnasale" "Digital.*Freedom.*Core" "Запуск бота" 90

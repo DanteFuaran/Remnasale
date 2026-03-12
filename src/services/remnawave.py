@@ -1074,6 +1074,17 @@ class RemnawaveService(BaseService):
                 target=subscription,
                 source=remna_subscription,
             )
+
+            # Обновляем название плана в snapshot если оно изменилось в БД бота
+            if subscription.plan and subscription.plan.id:
+                current_plan = await self.plan_service.get(subscription.plan.id)
+                if current_plan and current_plan.name != subscription.plan.name:
+                    logger.info(
+                        f"Plan name updated for user '{user.telegram_id}': "
+                        f"'{subscription.plan.name}' -> '{current_plan.name}'"
+                    )
+                    subscription.plan.name = current_plan.name
+
             await self.subscription_service.update(subscription)
             logger.info(f"Subscription updated for '{user.telegram_id}'")
 
