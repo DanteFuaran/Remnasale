@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DanteFuaran/Remnasale/releases"><img src="https://img.shields.io/badge/version-0.2.0-blue?style=flat-square" alt="version"></a>
+  <a href="https://github.com/DanteFuaran/Remnasale/releases"><img src="https://img.shields.io/badge/version-0.2.2-blue?style=flat-square" alt="version"></a>
   <img src="https://img.shields.io/badge/python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="python">
   <img src="https://img.shields.io/badge/docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="docker">
   <a href="README.md"><img src="https://img.shields.io/badge/lang-RU-lightgrey?style=flat-square" alt="RU"></a>
