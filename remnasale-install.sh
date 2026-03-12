@@ -1135,12 +1135,12 @@ fi
 
 SIZE=$(du -h "$FINAL_FILE" | awk '{print $1}')
 DATE=$(date '+%d.%m.%Y %H:%M')
-CAPTION="💾 #remnasale_backup
-➖➖➖➖➖➖➖➖➖
-✅ Бекап успешно создан
+CAPTION="� Приложение: Remnasale
 📁 Дамп БД
 📏 Размер: ${SIZE}
-📅 ${DATE} MSK"
+📅 ${DATE} МСК
+
+✅ Бекап создан автоматически"
 curl -s -F "chat_id=$CHAT_ID" \
      -F "document=@$FINAL_FILE" \
      -F "caption=$CAPTION" \
@@ -1323,11 +1323,11 @@ manage_database() {
         menu_items+=("──────────────────────────────────────"); db_actions+=("sep")
         menu_items+=("❌  Назад");                              db_actions+=("back")
 
-        local menu_title="   💾  Работа с базой данных"
+        local menu_title=" 💾  Работа с базой данных"
         if _autobackup_is_active; then
             local freq
             freq=$(_autobackup_get_frequency)
-            menu_title="   💾  Работа с базой данных\n   📊  Автобекап: ${GREEN}${freq}${NC}"
+            menu_title=" 💾  Работа с базой данных\n    📊  Автобекап: ${GREEN}${freq}${NC}"
         fi
 
         show_arrow_menu "$menu_title" "${menu_items[@]}"
@@ -2322,7 +2322,7 @@ if [ "$1" != "--install" ]; then
         INSTALL_MODE="prod"
     fi
 
-    echo -e '\033[1;34mПодготовка к запуску скрипта...\033[0m'
+    echo -e '\033[1;34mПодготовка скрипта к запуску...\033[0m'
     
     # Проверяем что это не dev окружение (не должна быть .git папка в текущей директории)
     # Если это dev окружение - принудительно клонируем в temp
