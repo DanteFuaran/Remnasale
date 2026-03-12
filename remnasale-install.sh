@@ -889,22 +889,39 @@ CHAT_ID=$(grep '^chat_id:' "$CONFIG" | cut -d: -f2- | tr -d ' ')
 
 BACKUP_DIR="/opt/remnasale/backups"
 mkdir -p "$BACKUP_DIR"
-TIMESTAMP=$(date +%d-%m-%y_%H-%M)
-BACKUP_FILE="${BACKUP_DIR}/auto_${TIMESTAMP}.sql.gz"
+TIMESTAMP=$(date +%Y-%m-%d_%H-%M)
+DUMP_FILE="${BACKUP_DIR}/dump_${TIMESTAMP}.sql.gz"
+DIR_ARCHIVE="${BACKUP_DIR}/dir_${TIMESTAMP}.tar.gz"
+FINAL_FILE="${BACKUP_DIR}/Remnasale_${TIMESTAMP}.tar.gz"
 
-# Дамп БД через docker
-docker exec remnasale-db pg_dump -U postgres -d postgres 2>/dev/null | gzip > "$BACKUP_FILE"
+# Дамп БД
+docker exec remnasale-db pg_dumpall -c -U postgres 2>/dev/null | gzip -9 > "$DUMP_FILE"
+if [ ! -s "$DUMP_FILE" ]; then
+    rm -f "$DUMP_FILE"
+    exit 1
+fi
 
-if [ -s "$BACKUP_FILE" ]; then
-    # Отправка в Telegram
-    CAPTION="💾 Автобекап Remnasale
-📅 $(date '+%d.%m.%Y %H:%M') MSK"
+# Архив директории
+tar -czf "$DIR_ARCHIVE" --exclude='*.log' --exclude='*.tmp' --exclude='.git' --exclude='backups' -C /opt remnasale 2>/dev/null || true
+
+# Финальный архив
+tar -czf "$FINAL_FILE" -C "$BACKUP_DIR" "$(basename "$DUMP_FILE")" "$(basename "$DIR_ARCHIVE")" 2>/dev/null
+rm -f "$DUMP_FILE" "$DIR_ARCHIVE"
+
+if [ -s "$FINAL_FILE" ]; then
+    SIZE=$(du -h "$FINAL_FILE" | awk '{print $1}')
+    DATE=$(date '+%d.%m.%Y %H:%M')
+    CAPTION="💾 #remnasale_backup
+➖➖➖➖➖➖➖➖➖
+✅ Бекап успешно создан
+📁 БД + Директория
+📏 Размер: ${SIZE}
+📅 ${DATE} MSK"
     curl -s -F "chat_id=$CHAT_ID" \
-         -F "document=@$BACKUP_FILE" \
+         -F "document=@$FINAL_FILE" \
          -F "caption=$CAPTION" \
          "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" >/dev/null 2>&1
-    # Удаляем автобекапы старше 7 дней
-    find "$BACKUP_DIR" -name "auto_*.sql.gz" -mtime +7 -delete 2>/dev/null || true
+    find "$BACKUP_DIR" -name "Remnasale_*.tar.gz" -mtime +7 -delete 2>/dev/null || true
 fi
 BACKUP_SCRIPT
     chmod +x "$AUTOBACKUP_SCRIPT"
@@ -965,12 +982,13 @@ manage_autobackup() {
         local menu_items=()
         if _autobackup_is_active; then
             menu_items+=("⚙️   Изменить настройки")
+            menu_items+=("📤  Создать бекап сейчас")
             menu_items+=("⛔  Остановить автобекап")
         else
             menu_items+=("⚙️   Настройка автобекапа")
         fi
         menu_items+=("──────────────────────────────────────")
-        menu_items+=("⬅️   Назад")
+        menu_items+=("❌  Назад")
 
         show_arrow_menu "💾 АВТОБЕКАП" "${menu_items[@]}"
         local choice=$?
@@ -1076,6 +1094,99 @@ EOF
                 read -p ""
                 ;;
             1)
+                if _autobackup_is_active; then
+                    # Создать бекап сейчас
+                    local mn_token mn_chat
+                    mn_token=$(grep '^bot_token:' "$AUTOBACKUP_CONFIG" 2>/dev/null | cut -d: -f2- | tr -d ' ')
+                    mn_chat=$(grep '^chat_id:' "$AUTOBACKUP_CONFIG" 2>/dev/null | cut -d: -f2- | tr -d ' ')
+
+                    clear
+                    echo -e "${BLUE}══════════════════════════════════════${NC}"
+                    echo -e "${GREEN}       📤 СОЗДАНИЕ БЕКАПА${NC}"
+                    echo -e "${BLUE}══════════════════════════════════════${NC}"
+                    echo
+
+                    local mn_ts mn_dump mn_dir mn_final mn_tmp
+                    mn_ts=$(date +%Y-%m-%d_%H-%M)
+                    mn_tmp="/tmp/_rs_backup_$$"
+                    mkdir -p "$mn_tmp"
+                    mn_dump="${mn_tmp}/dump_${mn_ts}.sql.gz"
+                    mn_dir="${mn_tmp}/dir_${mn_ts}.tar.gz"
+                    mn_final="${mn_tmp}/Remnasale_${mn_ts}.tar.gz"
+
+                    (
+                        docker exec remnasale-db pg_dumpall -c -U postgres 2>/dev/null | gzip -9 > "$mn_dump"
+                    ) &
+                    show_spinner "Создание дампа базы данных"
+
+                    if [ ! -s "$mn_dump" ]; then
+                        print_error "Не удалось создать дамп"
+                        rm -rf "$mn_tmp"
+                        echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+                        read -p ""
+                        continue
+                    fi
+
+                    (
+                        tar -czf "$mn_dir" --exclude='*.log' --exclude='*.tmp' --exclude='.git' --exclude='backups' -C /opt remnasale 2>/dev/null || true
+                    ) &
+                    show_spinner "Архивирование директории"
+
+                    (
+                        tar -czf "$mn_final" -C "$mn_tmp" "$(basename "$mn_dump")" "$(basename "$mn_dir")" 2>/dev/null
+                    ) &
+                    show_spinner "Создание финального архива"
+                    rm -f "$mn_dump" "$mn_dir" 2>/dev/null
+
+                    if [ ! -s "$mn_final" ]; then
+                        print_error "Не удалось создать архив"
+                        rm -rf "$mn_tmp"
+                        echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+                        read -p ""
+                        continue
+                    fi
+
+                    local mn_size
+                    mn_size=$(du -h "$mn_final" | awk '{print $1}')
+                    local mn_date
+                    mn_date=$(date '+%d.%m.%Y %H:%M')
+                    local mn_caption
+                    mn_caption="💾 #remnasale_backup
+➖➖➖➖➖➖➖➖➖
+✅ Бекап создан вручную
+📁 БД + Директория
+📏 Размер: ${mn_size}
+📅 ${mn_date} MSK"
+
+                    (
+                        curl -s \
+                            -F "chat_id=$mn_chat" \
+                            -F "document=@$mn_final" \
+                            -F "caption=$mn_caption" \
+                            "https://api.telegram.org/bot${mn_token}/sendDocument" > /tmp/_rs_ab_result 2>&1
+                    ) &
+                    show_spinner "Отправка в Telegram"
+
+                    local send_ok=false
+                    grep -q '"ok":true' /tmp/_rs_ab_result 2>/dev/null && send_ok=true
+                    rm -f /tmp/_rs_ab_result 2>/dev/null || true
+                    rm -rf "$mn_tmp" 2>/dev/null || true
+
+                    if $send_ok; then
+                        print_success "Бекап успешно отправлен в Telegram"
+                        echo -e "  📏 Размер: ${YELLOW}${mn_size}${NC}"
+                    else
+                        print_error "Не удалось отправить бекап (проверьте токен/chat_id)"
+                    fi
+                    echo
+                    echo -e "${BLUE}══════════════════════════════════════${NC}"
+                    echo -e "${DARKGRAY}Нажмите Enter для продолжения${NC}"
+                    read -p ""
+                else
+                    return
+                fi
+                ;;
+            2)
                 if _autobackup_is_active; then
                     # Остановить автобекап
                     (crontab -l 2>/dev/null | grep -v "$AUTOBACKUP_SCRIPT") | crontab -
