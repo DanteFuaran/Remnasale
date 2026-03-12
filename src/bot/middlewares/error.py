@@ -1,7 +1,7 @@
 import traceback
 from typing import Any, Awaitable, Callable, Optional, cast
 
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import CallbackQuery, ErrorEvent, TelegramObject
 from aiogram.types import User as AiogramUser
 from aiogram.utils.formatting import Text
@@ -46,6 +46,8 @@ class ErrorMiddleware(EventTypedMiddleware):
             return await handler(event, data)
         
         # Игнорируем ошибки Telegram, которые нормальны при взаимодействии с пользователями
+        if isinstance(error, TelegramForbiddenError):
+            return await handler(event, data)
         if isinstance(error, TelegramBadRequest):
             error_str = str(error).lower()
             # chat not found - пользователь заблокировал бота или удалил чат

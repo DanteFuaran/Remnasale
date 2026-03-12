@@ -1,5 +1,5 @@
 from aiogram import Bot
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram_dialog import BgManagerFactory, ShowMode, StartMode
 from dishka.integrations.taskiq import FromDishka, inject
@@ -33,9 +33,9 @@ async def redirect_to_main_menu_task(
             mode=StartMode.RESET_STACK,
             show_mode=ShowMode.DELETE_AND_SEND,
         )
-    except TelegramBadRequest as e:
-        if "chat not found" in str(e).lower():
-            logger.debug(f"Chat not found for user {telegram_id}. User may have blocked the bot.")
+    except (TelegramBadRequest, TelegramForbiddenError) as e:
+        if isinstance(e, TelegramForbiddenError) or "chat not found" in str(e).lower():
+            logger.debug(f"Cannot reach user {telegram_id}: {e}")
         else:
             raise
 
@@ -90,9 +90,9 @@ async def redirect_to_successed_trial_task(
             mode=StartMode.RESET_STACK,
             show_mode=ShowMode.DELETE_AND_SEND,
         )
-    except TelegramBadRequest as e:
-        if "chat not found" in str(e).lower():
-            logger.debug(f"Chat not found for user {user.telegram_id}. User may have blocked the bot.")
+    except (TelegramBadRequest, TelegramForbiddenError) as e:
+        if isinstance(e, TelegramForbiddenError) or "chat not found" in str(e).lower():
+            logger.debug(f"Cannot reach user {user.telegram_id}: {e}")
         else:
             raise
 
@@ -121,9 +121,9 @@ async def redirect_to_successed_payment_task(
             mode=StartMode.RESET_STACK,
             show_mode=ShowMode.DELETE_AND_SEND,
         )
-    except TelegramBadRequest as e:
-        if "chat not found" in str(e).lower():
-            logger.debug(f"Chat not found for user {user.telegram_id}. User may have blocked the bot.")
+    except (TelegramBadRequest, TelegramForbiddenError) as e:
+        if isinstance(e, TelegramForbiddenError) or "chat not found" in str(e).lower():
+            logger.debug(f"Cannot reach user {user.telegram_id}: {e}")
         else:
             raise
 
@@ -146,9 +146,9 @@ async def redirect_to_failed_subscription_task(
             mode=StartMode.RESET_STACK,
             show_mode=ShowMode.DELETE_AND_SEND,
         )
-    except TelegramBadRequest as e:
-        if "chat not found" in str(e).lower():
-            logger.debug(f"Chat not found for user {user.telegram_id}. User may have blocked the bot.")
+    except (TelegramBadRequest, TelegramForbiddenError) as e:
+        if isinstance(e, TelegramForbiddenError) or "chat not found" in str(e).lower():
+            logger.debug(f"Cannot reach user {user.telegram_id}: {e}")
         else:
             raise
 
@@ -175,9 +175,9 @@ async def redirect_to_balance_success_task(
             mode=StartMode.RESET_STACK,
             show_mode=ShowMode.DELETE_AND_SEND,
         )
-    except TelegramBadRequest as e:
-        if "chat not found" in str(e).lower():
-            logger.debug(f"Chat not found for user {user.telegram_id}. User may have blocked the bot.")
+    except (TelegramBadRequest, TelegramForbiddenError) as e:
+        if isinstance(e, TelegramForbiddenError) or "chat not found" in str(e).lower():
+            logger.debug(f"Cannot reach user {user.telegram_id}: {e}")
         else:
             raise
 
@@ -203,9 +203,9 @@ async def redirect_to_extra_devices_success_task(
             mode=StartMode.RESET_STACK,
             show_mode=ShowMode.DELETE_AND_SEND,
         )
-    except TelegramBadRequest as e:
-        if "chat not found" in str(e).lower():
-            logger.debug(f"Chat not found for user {user.telegram_id}. User may have blocked the bot.")
+    except (TelegramBadRequest, TelegramForbiddenError) as e:
+        if isinstance(e, TelegramForbiddenError) or "chat not found" in str(e).lower():
+            logger.debug(f"Cannot reach user {user.telegram_id}: {e}")
         else:
             raise
 
@@ -254,9 +254,9 @@ async def send_balance_topup_notification_task(
         
         logger.info(f"Sent balance topup notification to user {telegram_id}")
         
-    except TelegramBadRequest as e:
-        if "chat not found" in str(e).lower():
-            logger.debug(f"Chat not found for user {telegram_id}. User may have blocked the bot.")
+    except (TelegramBadRequest, TelegramForbiddenError) as e:
+        if isinstance(e, TelegramForbiddenError) or "chat not found" in str(e).lower():
+            logger.debug(f"Cannot reach user {telegram_id}: {e}")
         else:
             logger.error(f"Failed to send balance topup notification to {telegram_id}: {e}")
             raise
