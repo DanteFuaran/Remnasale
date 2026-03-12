@@ -19,6 +19,6 @@ try:
             (l.strip() for l in _lines if l.strip() and ":" not in l.split()[0]),
             "",
         )
-        __version__ = _first if _first else '0.2.1'
+        __version__ = _first if _first else '0.2.2'
 except FileNotFoundError:
-    __version__ = '0.2.1'
+    __version__ = '0.2.2'
