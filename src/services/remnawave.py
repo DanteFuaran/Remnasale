@@ -967,6 +967,12 @@ class RemnawaveService(BaseService):
                         f"Subscription plan switched to '{matching_plan.name}' for user '{user.telegram_id}'. "
                         f"Device limit: {matching_plan.device_limit} + {extra_devices} extra = {new_device_limit}"
                     )
+
+                    # Сохраняем и выходим — не запускаем apply_sync который перезапишет device_limit и другие поля
+                    await self.subscription_service.update(subscription)
+                    await self.user_service.clear_user_cache(user.telegram_id)
+                    logger.info(f"Sync completed for user '{remna_user.telegram_id}'")
+                    return
                 else:
                     # План не найден или неактивен — создаём подписку "Импорт"
                     if matching_plan:

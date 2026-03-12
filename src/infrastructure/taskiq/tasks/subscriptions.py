@@ -453,7 +453,8 @@ async def process_subscription_purchase(
             subscription.expire_at = new_expire
             subscription.plan = plan
             subscription.device_limit = total_device_limit  # Обновляем общий лимит
-            subscription.extra_devices = current_extra_devices  # Сохраняем extra_devices            subscription.traffic_limit = plan.traffic_limit
+            subscription.extra_devices = current_extra_devices  # Сохраняем extra_devices
+            subscription.traffic_limit = plan.traffic_limit
             subscription.traffic_limit_strategy = plan.traffic_limit_strategy
             subscription.tag = plan.tag
             subscription.internal_squads = plan.internal_squads
