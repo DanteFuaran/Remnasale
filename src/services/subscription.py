@@ -205,9 +205,26 @@ class SubscriptionService(BaseService):
     def find_matching_plan(
         plan_snapshot: PlanSnapshotDto, plans: list[PlanDto]
     ) -> Optional[PlanDto]:
-        return next(
+        # 1. Точное совпадение (id + tag + параметры)
+        exact = next(
             (plan for plan in plans if SubscriptionService.plan_match(plan_snapshot, plan)), None
         )
+        if exact:
+            return exact
+
+        # 2. Совпадение по тегу (после восстановления из бэкапа ID могут отличаться)
+        if plan_snapshot.tag:
+            by_tag = next(
+                (plan for plan in plans if plan.tag == plan_snapshot.tag and plan.is_active), None
+            )
+            if by_tag:
+                logger.info(
+                    f"Plan matched by tag '{plan_snapshot.tag}' "
+                    f"(snapshot id={plan_snapshot.id}, matched id={by_tag.id})"
+                )
+                return by_tag
+
+        return None
 
     @staticmethod
     def apply_sync(target: T, source: Union[SubscriptionDto, RemnaSubscriptionDto]) -> T:
