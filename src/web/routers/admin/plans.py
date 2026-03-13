@@ -135,7 +135,11 @@ async def api_admin_update_plan(plan_id: int, request: Request, uid: int = Depen
         updated = await plan_service.update(existing)
         if not updated:
             raise HTTPException(status_code=500, detail="Ошибка обновления тарифа")
-        return JSONResponse({"ok": True})
+
+        # Обновляем snapshot плана во всех активных подписках
+        propagated = await plan_service.propagate_plan_to_subscribers(updated)
+
+        return JSONResponse({"ok": True, "propagated": propagated})
 
 
 @router.delete("/{plan_id}")

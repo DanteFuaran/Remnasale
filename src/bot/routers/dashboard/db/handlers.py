@@ -182,6 +182,12 @@ async def on_export_db(
             for table in tables:
                 if not table or table == 'alembic_version':
                     continue
+
+                # Validate table name to prevent SQL injection
+                import re as _re
+                if not _re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table):
+                    logger.warning(f"Skipping invalid table name: {table}")
+                    continue
                     
                 # Получаем структуру таблицы
                 columns_cmd = [
@@ -749,7 +755,8 @@ async def on_db_file_input(
 
     backup_dir = "/opt/remnasale/backups"
     os.makedirs(backup_dir, exist_ok=True)
-    local_file_path = os.path.join(backup_dir, document.file_name)
+    safe_filename = os.path.basename(document.file_name)
+    local_file_path = os.path.join(backup_dir, safe_filename)
 
     file = await bot.get_file(document.file_id)
     if not file.file_path:

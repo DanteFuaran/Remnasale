@@ -163,6 +163,59 @@ class PlanService(BaseService):
 
         return PlanDto.from_model(db_updated_plan)
 
+    async def propagate_plan_to_subscribers(self, plan: PlanDto) -> int:
+        """
+        Обновляет snapshot плана и лимиты во всех активных подписках с этим plan.id.
+        Возвращает количество обновлённых подписок.
+        """
+        from src.infrastructure.database.models.dto import SubscriptionDto, PlanSnapshotDto
+        from src.core.enums import SubscriptionStatus
+
+        db_subscriptions = await self.uow.repository.subscriptions.filter_by_plan_id(plan.id)
+        updated_count = 0
+
+        for db_sub in db_subscriptions:
+            sub = SubscriptionDto.from_model(db_sub)
+            if not sub or sub.status in (SubscriptionStatus.EXPIRED, SubscriptionStatus.DISABLED):
+                continue
+
+            # Сохраняем duration из текущего snapshot (он индивидуален для каждой подписки)
+            old_duration = sub.plan.duration if sub.plan else -1
+            extra_devices = sub.extra_devices or 0
+
+            # Обновляем snapshot плана с сохранением индивидуальной длительности
+            new_snapshot = PlanSnapshotDto.from_plan(plan, old_duration)
+            sub.plan = new_snapshot
+            sub.tag = plan.tag
+            sub.traffic_limit = plan.traffic_limit
+            sub.device_limit = plan.device_limit + extra_devices
+            sub.traffic_limit_strategy = plan.traffic_limit_strategy
+            sub.internal_squads = plan.internal_squads.copy()
+            sub.external_squad = plan.external_squad.copy() if plan.external_squad else None
+
+            data = {
+                "plan": sub.plan.model_dump(mode="json"),
+                "tag": sub.tag,
+                "traffic_limit": sub.traffic_limit,
+                "device_limit": sub.device_limit,
+                "traffic_limit_strategy": sub.traffic_limit_strategy,
+                "internal_squads": sub.internal_squads,
+                "external_squad": sub.external_squad,
+            }
+            await self.uow.repository.subscriptions.update(
+                subscription_id=sub.id,
+                **data,
+            )
+            updated_count += 1
+
+        if updated_count > 0:
+            await self.uow.commit()
+            logger.info(
+                f"Propagated plan '{plan.name}' (ID: {plan.id}) changes to {updated_count} subscription(s)"
+            )
+
+        return updated_count
+
     async def delete(self, plan_id: int) -> bool:
         result = await self.uow.repository.plans.delete(plan_id)
 
